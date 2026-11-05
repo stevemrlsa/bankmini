@@ -107,46 +107,48 @@ class DummyDataSeeder extends Seeder
         // 3. Menambahkan Dummy Transaksi (Setoran & Penarikan) agar laporan terisi
         $teller = User::where('role', 'Teller')->first();
 
-        foreach ($saverRecords as $saver) {
-            // Berikan 2 setoran dan 1 penarikan untuk tiap nasabah
-            
-            // Transaksi 1: Setoran Awal (Rp 50.000)
-            Transaction::create([
-                'saver_id' => $saver->id,
-                'user_id' => $teller->id, // Diproses oleh teller
-                'transaction_date' => Carbon::now()->subDays(2)->format('Y-m-d H:i:s'),
-                'transaction_type' => 'Deposit',
-                'amount' => 50000,
-                'status' => 'Approved',
-                'created_at' => Carbon::now()->subDays(2),
-            ]);
-            $saver->saldo += 50000;
-            
-            // Transaksi 2: Setoran Kedua (Rp 25.000)
-            Transaction::create([
-                'saver_id' => $saver->id,
-                'user_id' => $teller->id,
-                'transaction_date' => Carbon::now()->subDays(1)->format('Y-m-d H:i:s'),
-                'transaction_type' => 'Deposit',
-                'amount' => 25000,
-                'status' => 'Approved',
-                'created_at' => Carbon::now()->subDays(1),
-            ]);
-            $saver->saldo += 25000;
+        if (Transaction::count() === 0 && $teller) {
+            foreach ($saverRecords as $saver) {
+                // Berikan 2 setoran dan 1 penarikan untuk tiap nasabah
+                
+                // Transaksi 1: Setoran Awal (Rp 50.000)
+                Transaction::create([
+                    'saver_id' => $saver->id,
+                    'user_id' => $teller->id, // Diproses oleh teller
+                    'transaction_date' => Carbon::now()->subDays(2)->format('Y-m-d H:i:s'),
+                    'transaction_type' => 'Deposit',
+                    'amount' => 50000,
+                    'status' => 'Approved',
+                    'created_at' => Carbon::now()->subDays(2),
+                ]);
+                $saver->saldo += 50000;
+                
+                // Transaksi 2: Setoran Kedua (Rp 25.000)
+                Transaction::create([
+                    'saver_id' => $saver->id,
+                    'user_id' => $teller->id,
+                    'transaction_date' => Carbon::now()->subDays(1)->format('Y-m-d H:i:s'),
+                    'transaction_type' => 'Deposit',
+                    'amount' => 25000,
+                    'status' => 'Approved',
+                    'created_at' => Carbon::now()->subDays(1),
+                ]);
+                $saver->saldo += 25000;
 
-            // Transaksi 3: Penarikan (Rp 15.000)
-            Transaction::create([
-                'saver_id' => $saver->id,
-                'user_id' => $teller->id,
-                'transaction_date' => Carbon::now()->format('Y-m-d H:i:s'),
-                'transaction_type' => 'Withdrawal',
-                'amount' => 15000,
-                'status' => 'Approved',
-                'created_at' => Carbon::now(),
-            ]);
-            $saver->saldo -= 15000;
+                // Transaksi 3: Penarikan (Rp 15.000)
+                Transaction::create([
+                    'saver_id' => $saver->id,
+                    'user_id' => $teller->id,
+                    'transaction_date' => Carbon::now()->format('Y-m-d H:i:s'),
+                    'transaction_type' => 'Withdrawal',
+                    'amount' => 15000,
+                    'status' => 'Approved',
+                    'created_at' => Carbon::now(),
+                ]);
+                $saver->saldo -= 15000;
 
-            $saver->save();
+                $saver->save();
+            }
         }
     }
 }

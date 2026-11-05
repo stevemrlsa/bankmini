@@ -13,10 +13,12 @@ class SystemSettingSeeder extends Seeder
      */
     public function run(): void
     {
-        SystemSetting::create([
-            'key' => 'min_saldo_mengendap', 
-            'value' => '10000',
-            'description' => 'Batas saldo minimum yang tidak bisa ditarik oleh nasabah'
-        ]);
+        SystemSetting::updateOrCreate(
+            ['key' => 'min_saldo_mengendap'],
+            [
+                'value' => '10000',
+                'description' => 'Batas saldo minimum yang tidak bisa ditarik oleh nasabah'
+            ]
+        );
     }
 }
