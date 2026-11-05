@@ -1,0 +1,231 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\SendOtpMail;
+use App\Models\User;
+use App\Models\Officer;
+
+class ProfileController extends Controller
+{
+    /**
+     * Tampilkan halaman profil pengguna
+     */
+    public function show()
+    {
+        $user = auth()->user();
+        return view('profile.index', compact('user'));
+    }
+
+    /**
+     * Minta kode OTP untuk Ganti Kata Sandi (dikirim ke email akun saat ini)
+     */
+    public function requestPasswordOtp(Request $request)
+    {
+        $user = auth()->user();
+
+        if (empty($user->email)) {
+            return back()->with('error', 'Akun Anda belum memiliki alamat email terdaftar. Silakan hubungi Administrator.');
+        }
+
+        // Generate 6 digit OTP
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // Simpan ke session dengan batasan waktu 2 menit (120 detik)
+        session([
+            'profile_pw_otp'            => $otp,
+            'profile_pw_otp_expires_at' => now()->addMinutes(2)->timestamp,
+            'profile_pw_otp_sent'       => true,
+        ]);
+
+        $officerName = $user->officer_name ?? $user->username;
+        $roleName    = $user->role ?? 'Pegawai';
+
+        $emailSent = false;
+        try {
+            Mail::to($user->email)->send(new SendOtpMail(
+                $otp, 
+                $officerName, 
+                $roleName, 
+                'mengubah kata sandi profil',
+                'Kode OTP Ganti Kata Sandi - Bank Mini'
+            ));
+            $emailSent = true;
+        } catch (\Throwable $e) {
+            Log::warning('Gagal kirim email OTP ganti password: ' . $e->getMessage());
+            if (config('app.debug')) {
+                session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP: {$otp}");
+            } else {
+                return back()->with('error', 'Gagal mengirim email OTP: ' . $e->getMessage());
+            }
+        }
+
+        return back()->with('success', $emailSent 
+            ? 'Kode OTP telah dikirimkan ke email Anda (' . $user->email . '). Berlaku selama 2 menit.' 
+            : 'Kode OTP keamanan telah dibuat untuk sesi ini.');
+    }
+
+    /**
+     * Eksekusi pembaruan kata sandi dengan verifikasi kode OTP (Batas waktu 2 menit)
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'otp'      => 'required|digits:6',
+            'password' => 'required|string|min:6|confirmed',
+        ], [
+            'otp.required'       => 'Kode OTP wajib diisi.',
+            'otp.digits'         => 'Kode OTP harus berjumlah 6 digit angka.',
+            'password.required'  => 'Kata sandi baru wajib diisi.',
+            'password.min'       => 'Kata sandi baru minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
+        ]);
+
+        // Cek kedaluwarsa waktu 2 menit
+        $expiresAt = session('profile_pw_otp_expires_at');
+        if (!$expiresAt || now()->timestamp > $expiresAt) {
+            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+        }
+
+        // Cek kesesuaian OTP
+        $storedOtp = session('profile_pw_otp');
+        if (!$storedOtp || $storedOtp !== $request->otp) {
+            return back()->withInput()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
+        }
+
+        // Update password user
+        /** @var User $user */
+        $user = auth()->user();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // Bersihkan session
+        session()->forget([
+            'profile_pw_otp',
+            'profile_pw_otp_expires_at',
+            'profile_pw_otp_sent',
+        ]);
+
+        return back()->with('success', 'Kata sandi berhasil diperbarui dengan aman!');
+    }
+
+    /**
+     * Minta kode OTP untuk Ganti Email (Verifikasi password saat ini & kirim OTP ke email baru)
+     */
+    public function requestEmailOtp(Request $request)
+    {
+        $user = auth()->user();
+
+        $request->validate([
+            'new_email'        => 'required|email|unique:users,email,' . $user->id,
+            'current_password' => 'required|string',
+        ], [
+            'new_email.required'        => 'Alamat email baru wajib diisi.',
+            'new_email.email'           => 'Format alamat email baru tidak valid.',
+            'new_email.unique'          => 'Alamat email tersebut sudah digunakan oleh akun lain.',
+            'current_password.required' => 'Kata sandi saat ini wajib diisi untuk verifikasi keamanan.',
+        ]);
+
+        // 1. Verifikasi kecocokan password saat ini
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withInput()->with('error', 'Kata sandi saat ini yang Anda masukkan salah.');
+        }
+
+        // 2. Generate 6 digit OTP
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        // 3. Simpan data ke session dengan batasan waktu 2 menit (120 detik)
+        session([
+            'change_email_new'        => $request->new_email,
+            'change_email_otp'        => $otp,
+            'change_email_expires_at' => now()->addMinutes(2)->timestamp,
+            'change_email_otp_sent'   => true,
+        ]);
+
+        $officerName = $user->officer_name ?? $user->username;
+        $roleName    = $user->role ?? 'Pegawai';
+
+        $emailSent = false;
+        try {
+            Mail::to($request->new_email)->send(new SendOtpMail(
+                $otp, 
+                $officerName, 
+                $roleName, 
+                'memverifikasi perubahan alamat email baru',
+                'Kode OTP Verifikasi Email Baru - Bank Mini'
+            ));
+            $emailSent = true;
+        } catch (\Throwable $e) {
+            Log::warning('Gagal kirim email OTP ganti email: ' . $e->getMessage());
+            if (config('app.debug')) {
+                session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP verifikasi email: {$otp}");
+            } else {
+                return back()->withInput()->with('error', 'Gagal mengirim email OTP ke email baru: ' . $e->getMessage());
+            }
+        }
+
+        return back()->with('success', $emailSent 
+            ? 'Kode OTP verifikasi telah dikirimkan ke email baru Anda (' . $request->new_email . '). Berlaku selama 2 menit.' 
+            : 'Kode OTP verifikasi email baru telah dibuat untuk sesi ini.');
+    }
+
+    /**
+     * Verifikasi kode OTP dan resmi perbarui email akun
+     */
+    public function verifyAndChangeEmail(Request $request)
+    {
+        $request->validate([
+            'otp' => 'required|digits:6',
+        ], [
+            'otp.required' => 'Kode OTP verifikasi email wajib diisi.',
+            'otp.digits'   => 'Kode OTP harus berjumlah 6 digit angka.',
+        ]);
+
+        $newEmail = session('change_email_new');
+        if (!$newEmail) {
+            return back()->with('error', 'Sesi perubahan email telah berakhir. Silakan masukkan email baru kembali.');
+        }
+
+        // Cek batas waktu 2 menit
+        $expiresAt = session('change_email_expires_at');
+        if (!$expiresAt || now()->timestamp > $expiresAt) {
+            return back()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+        }
+
+        // Cek kesesuaian OTP
+        $storedOtp = session('change_email_otp');
+        if (!$storedOtp || $storedOtp !== $request->otp) {
+            return back()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
+        }
+
+        // Update email akun
+        /** @var User $user */
+        $user = auth()->user();
+        $user->email = $newEmail;
+        $user->save();
+
+        // Sinkronkan ke data Officer jika ada relasi
+        try {
+            if ($user->officer) {
+                $user->officer->update(['email' => $newEmail]);
+            }
+        } catch (\Throwable $e) {
+            // Abaikan jika relasi tidak ada
+        }
+
+        // Bersihkan session
+        session()->forget([
+            'change_email_new',
+            'change_email_otp',
+            'change_email_expires_at',
+            'change_email_otp_sent',
+        ]);
+
+        return back()->with('success', 'Alamat email akun Anda berhasil diperbarui menjadi: ' . $newEmail);
+    }
+}
+
