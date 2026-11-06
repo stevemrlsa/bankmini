@@ -22,25 +22,27 @@ class AuthController extends Controller
             } elseif ($userRole === 'Teller') {
                 return redirect()->route('teller.dashboard');
             } elseif ($userRole === 'Saver') {
-                return redirect()->route('saver.dashboard');
+                Auth::logout();
             }
-        } elseif (session()->has('saver_id')) {
-            return redirect()->route('saver.dashboard');
+        }
+        
+        if (session()->has('saver_id')) {
+            session()->forget(['saver_id', 'account_number']);
         }
 
         return view('auth.login');
     }
 
-    // Memproses data form login (Pegawai & Nasabah Siswa)
+    // Memproses data form login (Khusus Pegawai: Administrator & Teller)
     public function login(Request $request)
     {
-        // 1. Validasi input
+        // 1. Validasi input (hanya username & password untuk pegawai)
         $request->validate([
             'username' => ['required', 'string'],
             'password' => ['required', 'string'],
         ], [
-            'username.required' => 'Silakan masukkan Username, NIS, atau Nomor Rekening Anda.',
-            'password.required' => 'Silakan masukkan Password atau PIN Keamanan Anda.',
+            'username.required' => 'Silakan masukkan Username Anda.',
+            'password.required' => 'Silakan masukkan Password Anda.',
         ]);
 
         $username = trim($request->username);
@@ -50,7 +52,7 @@ class AuthController extends Controller
         // Mendukung login menggunakan email maupun username
         $loginField = filter_var($username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
-        // 2. Cek autentikasi utama via User model (Administrator, Teller, atau Siswa terdaftar)
+        // 2. Cek autentikasi utama via User model (Administrator atau Teller)
         if (Auth::attempt([$loginField => $username, 'password' => $password], $remember)) {
             $request->session()->regenerate();
 
@@ -66,6 +68,16 @@ class AuthController extends Controller
             // Ambil data role user yang sedang login
             $userRole = Auth::user()->role; 
 
+            // Tolak akses jika peran adalah Saver (Nasabah)
+            if ($userRole === 'Saver') {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                return back()->withErrors([
+                    'username' => 'Akses login web hanya diperuntukkan bagi Admin & Teller. Nasabah dianjurkan untuk menggunakan Aplikasi Mobile (APK) Bank Mini.',
+                ])->onlyInput('username');
+            }
+
             // Arahkan ke halaman sesuai dengan peran (role)
             switch ($userRole) {
                 case 'Administrator':
@@ -78,38 +90,12 @@ class AuthController extends Controller
                 case 'Teller':
                     return redirect()->intended('/teller/dashboard');
 
-                case 'Saver':
-                    // Hubungkan dengan data akun Saver
-                    $user = Auth::user();
-                    $saver = Saver::where('username', $user->username)
-                        ->orWhere('email', $user->email)
-                        ->orWhere('student_id', str_replace('siswa_', '', $user->username))
-                        ->first();
-
-                    if (!$saver) {
-                        $saver = Saver::where('student_name', $user->officer_name)->first();
-                    }
-
-                    if ($saver) {
-                        if ($saver->status === 'inactive' || $saver->status === 'Blokir') {
-                            Auth::logout();
-                            $request->session()->invalidate();
-                            $request->session()->regenerateToken();
-                            return back()->withErrors([
-                                'username' => 'Rekening tabungan Anda belum aktif atau sedang dinonaktifkan.',
-                            ])->onlyInput('username');
-                        }
-                        session(['saver_id' => $saver->id, 'account_number' => $saver->account_number]);
-                    }
-
-                    return redirect()->intended('/nasabah/dashboard');
-
                 default:
                     return redirect()->intended('/admin/dashboard'); 
             }
         }
 
-        // 3. Fallback Khusus Nasabah / Siswa: Login menggunakan Nomor Rekening / NIS + Password / PIN 6-digit
+        // 3. Jika pengguna mencoba login dengan data akun Nasabah/Siswa (Nomor Rekening, NIS, atau Username Saver)
         $saver = Saver::where(function($q) use ($username) {
             $q->where('account_number', $username)
               ->orWhere('student_id', $username)
@@ -118,47 +104,14 @@ class AuthController extends Controller
         })->first();
 
         if ($saver) {
-            $isValid = false;
-
-            // Cek Password atau PIN Keamanan pada tabel savers
-            if (!empty($saver->password) && Hash::check($password, $saver->password)) {
-                $isValid = true;
-            } elseif (!empty($saver->security_pin) && Hash::check($password, $saver->security_pin)) {
-                $isValid = true;
-            }
-
-            // Cek juga akun User terkait jika ada
-            $associatedUser = User::where('username', $saver->username)
-                ->orWhere('username', 'siswa_' . $saver->student_id)
-                ->orWhere('email', $saver->email)
-                ->first();
-
-            if (!$isValid && $associatedUser && Hash::check($password, $associatedUser->password)) {
-                $isValid = true;
-            }
-
-            if ($isValid) {
-                if ($saver->status === 'inactive' || $saver->status === 'Blokir') {
-                    return back()->withErrors([
-                        'username' => 'Rekening tabungan Anda belum aktif. Silakan lakukan aktivasi awal di loket Teller.',
-                    ])->onlyInput('username');
-                }
-
-                $request->session()->regenerate();
-                session(['saver_id' => $saver->id, 'account_number' => $saver->account_number]);
-
-                // Login-kan juga ke session Auth jika ada User record
-                if ($associatedUser) {
-                    Auth::login($associatedUser, $remember);
-                }
-
-                return redirect()->intended('/nasabah/dashboard');
-            }
+            return back()->withErrors([
+                'username' => 'Akses login web hanya diperuntukkan bagi Admin & Teller. Nasabah dianjurkan untuk menggunakan Aplikasi Mobile (APK) Bank Mini.',
+            ])->onlyInput('username');
         }
 
         // Jika kredensial tidak cocok
         return back()->withErrors([
-            'username' => 'Username, NIS, No. Rekening, atau kata sandi/PIN yang dimasukkan salah.',
+            'username' => 'Username atau password yang Anda masukkan salah.',
         ])->onlyInput('username');
     }
 

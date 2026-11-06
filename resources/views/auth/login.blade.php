@@ -437,7 +437,12 @@
 
                 <div class="form-header">
                     <h1 class="form-title">LOGIN</h1>
-                    <p class="form-subtitle">Masuk sebagai Administrator, Teller, atau Siswa Nasabah</p>
+                    <p class="form-subtitle">Portal Masuk Khusus Administrator & Teller Bank Mini</p>
+                </div>
+
+                <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius: 12px; font-size: 0.78rem; border: 1px solid #BAE6FD; background-color: #F0F9FF; color: #0369A1;">
+                    <i class="bi bi-info-circle-fill fs-6 flex-shrink-0"></i>
+                    <span>Akses web khusus <strong>Admin & Teller</strong>. Nasabah dianjurkan menggunakan <strong>Aplikasi Mobile (APK)</strong>.</span>
                 </div>
 
                 @if ($errors->any())
@@ -465,16 +470,16 @@
                 <form method="POST" action="/login">
                     @csrf
 
-                    {{-- Input Username / NIS / No Rekening --}}
+                    {{-- Input Username --}}
                     <div class="field-group">
-                        <label class="field-label" for="username">Username / NIS / No. Rekening</label>
+                        <label class="field-label" for="username">Username</label>
                         <div class="input-wrap">
                             <input
                                 type="text"
                                 id="username"
                                 name="username"
                                 class="input-field"
-                                placeholder="Masukkan username, NIS, atau no. rekening"
+                                placeholder="Masukkan username"
                                 value="{{ old('username') }}"
                                 autocomplete="username"
                                 required
@@ -483,16 +488,16 @@
                         </div>
                     </div>
 
-                    {{-- Input Password / PIN --}}
+                    {{-- Input Password --}}
                     <div class="field-group">
-                        <label class="field-label" for="password">Password / PIN 6-Digit</label>
+                        <label class="field-label" for="password">Password</label>
                         <div class="input-wrap">
                             <input
                                 type="password"
                                 id="password"
                                 name="password"
                                 class="input-field has-toggle"
-                                placeholder="Masukkan password atau PIN keamanan"
+                                placeholder="Masukkan password"
                                 autocomplete="current-password"
                                 required
                             >

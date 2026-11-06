@@ -838,13 +838,9 @@
                         <a href="{{ route('teller.dashboard') }}" class="btn-nav-login">
                             <i class="bi bi-speedometer2"></i> Dashboard Teller
                         </a>
-                    @elseif((Auth::check() && Auth::user()->role === 'Saver') || session()->has('saver_id'))
-                        <a href="{{ route('saver.dashboard') }}" class="btn-nav-login">
-                            <i class="bi bi-wallet2"></i> Dashboard Nasabah
-                        </a>
                     @else
                         <a href="{{ route('login') }}" class="btn-nav-login">
-                            <i class="bi bi-box-arrow-in-right"></i> Login
+                            <i class="bi bi-box-arrow-in-right"></i> Login Pegawai
                         </a>
                     @endif
                 </div>
@@ -1276,7 +1272,7 @@
                                 <i class="bi bi-android2 fs-5"></i> Unduh APK Nasabah (Android)
                             </button>
                             <a href="{{ route('login') }}" class="btn-cta-outline">
-                                <i class="bi bi-box-arrow-in-right"></i> Masuk Akun (Login)
+                                <i class="bi bi-box-arrow-in-right"></i> Login Pegawai
                             </a>
                         </div>
                     </div>
@@ -1329,7 +1325,7 @@
                 <div class="col-6 col-lg-4 footer-link-col">
                     <h6>Akses Pengguna</h6>
                     <ul>
-                        <li><a href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i> Login Pengguna (Pegawai & Siswa)</a></li>
+                        <li><a href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i> Login Pegawai (Admin & Teller)</a></li>
                         <li><a href="{{ route('password.request') }}"><i class="bi bi-key me-1"></i> Lupa Kata Sandi Pegawai</a></li>
                         <li><a href="#" data-bs-toggle="modal" data-bs-target="#modalDownloadApk"><i class="bi bi-download me-1"></i> Unduh Berkas Installer APK</a></li>
                     </ul>

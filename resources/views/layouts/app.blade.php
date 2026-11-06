@@ -66,9 +66,11 @@
             background-color: var(--bg-main);
         }
 
-        /* ===== Sidebar (Biru Dongker with Curved Scoop) ===== */
+        /* ===== Sidebar (Biru Dongker) ===== */
         .sidebar {
             width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            max-width: var(--sidebar-w);
             flex-shrink: 0;
             background: linear-gradient(180deg, #16233F 0%, #0E1830 100%);
             color: #FFFFFF;
@@ -76,20 +78,26 @@
             top: 0;
             left: 0;
             bottom: 0;
+            height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
-            padding: 30px 0 24px 0;
+            padding: 24px 0 16px 0;
             z-index: 1030;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow: visible !important;
+            box-shadow: 2px 0 18px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 0 24px 28px 24px;
+            padding: 0 20px 20px 20px;
             text-decoration: none;
+            flex-shrink: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 10px;
         }
 
         .sidebar-brand .brand-icon {
@@ -132,176 +140,120 @@
 
         .sidebar-section-label {
             font-size: 0.68rem;
-            color: rgba(255, 255, 255, 0.55);
-            padding: 16px 24px 6px 24px;
+            color: rgba(255, 255, 255, 0.45);
+            padding: 14px 16px 6px 16px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
         }
 
         .sidebar-nav {
-            flex: 1;
+            flex: 1 1 auto;
             overflow-y: auto;
-            overflow-x: visible !important;
-            scrollbar-width: none !important;
-            -ms-overflow-style: none !important;
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
             gap: 4px;
-            padding: 0 0 0 16px;
-            position: relative;
+            padding: 0 12px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
         }
 
         .sidebar-nav::-webkit-scrollbar {
-            display: none !important;
-            width: 0 !important;
-            height: 0 !important;
+            width: 4px;
+        }
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
         }
 
         .sidebar-nav .nav-link {
             display: flex;
             align-items: center;
-            gap: 14px;
-            color: rgba(255, 255, 255, 0.84);
-            height: 48px;
-            padding: 0 18px;
-            margin-right: 12px;
-            border-radius: 16px;
-            font-size: 0.9rem;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.80);
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 12px;
+            font-size: 0.88rem;
             font-weight: 500;
-            position: relative;
-            z-index: 10;
-            box-sizing: border-box;
-            white-space: nowrap;
-            transition: color 0.18s ease, background 0.18s ease;
+            transition: all 0.2s ease;
             background: transparent;
             text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sidebar-nav .nav-link i {
             font-size: 1.1rem;
             width: 22px;
             text-align: center;
-            opacity: 0.9;
+            flex-shrink: 0;
+            opacity: 0.85;
             transition: color 0.18s ease, opacity 0.18s ease;
         }
 
-        /* Hover: Floating capsule highlight that stays well inside the sidebar */
-        .sidebar-nav .nav-link:hover {
-            background: rgba(255, 255, 255, 0.10);
+        .sidebar-nav .nav-link:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.08);
             color: #ffffff;
         }
 
-        /* Active & Gliding Target Typography & Geometry */
-        .sidebar-nav .nav-link.active,
-        .sidebar-nav .nav-link.gliding-target {
-            margin-right: -4px !important;
-            padding-right: 24px !important;
-            border-top-left-radius: 30px !important;
-            border-bottom-left-radius: 30px !important;
-            border-top-right-radius: 0 !important;
-            border-bottom-right-radius: 0 !important;
-            color: var(--primary) !important;
-            font-weight: 600;
-            background: transparent !important;
-            z-index: 30 !important;
+        .sidebar-nav .nav-link:hover:not(.active) i {
+            opacity: 1;
+            color: #38BDF8;
         }
 
-        .sidebar-nav .nav-link.active i,
-        .sidebar-nav .nav-link.gliding-target i {
+        .sidebar-nav .nav-link.active {
+            background: #FFFFFF !important;
+            color: var(--primary) !important;
+            font-weight: 600;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar-nav .nav-link.active i {
             color: var(--primary) !important;
             opacity: 1;
         }
 
-        /* Suppress hover when active, gliding target, or during glider transition */
-        .sidebar-nav .nav-link.active:hover,
-        .sidebar-nav .nav-link.gliding-target:hover,
-        .sidebar-nav.is-gliding .nav-link,
-        .sidebar-nav.is-gliding .nav-link:hover {
-            background: transparent !important;
-        }
-
-        .sidebar-nav .nav-link.gliding-prev {
-            color: rgba(255, 255, 255, 0.84) !important;
-            font-weight: 500;
-        }
-
-        .sidebar-nav .nav-link.gliding-prev i {
-            color: rgba(255, 255, 255, 0.84) !important;
-            opacity: 0.9;
-        }
-
-        /* ===== SIGNATURE CURVED SCOOP GLIDER ===== */
-        .sidebar-glider {
-            position: absolute;
-            right: -4px;
-            width: calc(100% + 4px);
-            height: 48px;
-            background-color: var(--bg-main);
-            border-top-left-radius: 30px;
-            border-bottom-left-radius: 30px;
-            border-top-right-radius: 0;
-            border-bottom-right-radius: 0;
-            pointer-events: none;
-            z-index: 20;
-            transition: top 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
-            will-change: top;
-        }
-
-        .sidebar-glider::before {
-            content: '';
-            position: absolute;
-            top: -26px;
-            right: 0;
-            width: 26px;
-            height: 26px;
-            background-color: transparent;
-            border-bottom-right-radius: 26px;
-            box-shadow: 10px 10px 0 10px var(--bg-main);
-            pointer-events: none;
-            z-index: 20;
-        }
-
-        .sidebar-glider::after {
-            content: '';
-            position: absolute;
-            bottom: -26px;
-            right: 0;
-            width: 26px;
-            height: 26px;
-            background-color: transparent;
-            border-top-right-radius: 26px;
-            box-shadow: 10px -10px 0 10px var(--bg-main);
-            pointer-events: none;
-            z-index: 20;
-        }
-
         .sidebar-footer {
-            border-top: 1px solid rgba(255, 255, 255, 0.14);
-            padding: 16px 20px 0 20px;
-            margin-top: 10px;
+            flex-shrink: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 12px 12px 0 12px;
+            margin-top: auto;
         }
 
         .sidebar-footer .nav-link {
-            color: rgba(255, 255, 255, 0.78);
+            color: rgba(255, 255, 255, 0.75);
             display: flex;
             align-items: center;
             gap: 12px;
             padding: 10px 16px;
-            border-radius: 50px;
+            border-radius: 12px;
             font-size: 0.88rem;
-            transition: background 0.18s ease, color 0.18s ease;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background: transparent;
         }
         
         .sidebar-footer .nav-link:hover {
-            background: rgba(255, 255, 255, 0.14);
-            color: #ffffff;
+            background: rgba(239, 68, 68, 0.15);
+            color: #FCA5A5;
+        }
+
+        .sidebar-footer .nav-link:hover i {
+            color: #F87171;
         }
 
         /* ===== Main content wrapper ===== */
         .main-wrapper {
             margin-left: var(--sidebar-w);
-            flex: 1;
+            flex: 1 1 auto;
+            min-width: 0;
+            width: calc(100% - var(--sidebar-w));
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -819,6 +771,9 @@
         @media (max-width: 991.98px) {
             .sidebar {
                 transform: translateX(-100%);
+                width: 280px;
+                min-width: 280px;
+                max-width: 85vw;
                 box-shadow: 0 16px 40px rgba(12, 96, 240, 0.18);
             }
             .sidebar.show {
@@ -826,6 +781,8 @@
             }
             .main-wrapper {
                 margin-left: 0;
+                width: 100%;
+                min-width: 0;
             }
             .sidebar-toggle-btn {
                 display: flex;
@@ -875,7 +832,6 @@
             </a>
 
             <nav class="sidebar-nav" id="sidebarNav">
-                <div class="sidebar-glider" id="sidebarGlider"></div>
                 @auth
                     @if(in_array(Auth::user()->role, ['Administrator', 'Admin', 'Admin Utama', 'admin_utama', 'Supervisor']))
                         <span class="sidebar-section-label">Menu Utama</span>
@@ -932,21 +888,6 @@
                     @endif
                 @endauth
             </nav>
-
-            <script>
-                (function() {
-                    var nav = document.getElementById('sidebarNav');
-                    var glider = document.getElementById('sidebarGlider');
-                    if (!nav || !glider) return;
-                    var active = nav.querySelector('.nav-link.active');
-                    if (active) {
-                        glider.style.transition = 'none';
-                        glider.style.top = active.offsetTop + 'px';
-                    } else {
-                        glider.style.display = 'none';
-                    }
-                })();
-            </script>
 
             <div class="sidebar-footer">
                 @auth
@@ -1191,52 +1132,6 @@
             rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
             return prefix == undefined ? rupiah : (rupiah ? 'Rp ' + rupiah : '');
         }
-
-        // ===== Fluid Sliding Sidebar Curved Scoop Glider =====
-        (function() {
-            const sidebarNav = document.getElementById('sidebarNav');
-            const sidebarGlider = document.getElementById('sidebarGlider');
-
-            if (!sidebarNav || !sidebarGlider) return;
-
-            // Saat link sidebar diklik: luncurkan glider putih ke tombol yang diklik secara instan dan mulus
-            const navLinks = sidebarNav.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    const href = this.getAttribute('href');
-                    if (!href || href === '#' || href.startsWith('javascript') || this.hasAttribute('onclick')) return;
-
-                    // Cegah efek hover berkedip saat glider meluncur
-                    sidebarNav.classList.add('is-gliding');
-
-                    // Luncurkan scoop putih ke tombol target (ketinggian fix 48px, pergerakan mulus)
-                    sidebarGlider.style.transition = 'top 0.28s cubic-bezier(0.2, 0.9, 0.3, 1)';
-                    sidebarGlider.style.top = this.offsetTop + 'px';
-
-                    // Ubah warna teks seketika agar langsung responsif
-                    navLinks.forEach(l => {
-                        if (l === this) {
-                            l.classList.add('gliding-target');
-                            l.classList.remove('gliding-prev');
-                        } else {
-                            l.classList.remove('gliding-target');
-                            if (l.classList.contains('active')) {
-                                l.classList.add('gliding-prev');
-                            }
-                        }
-                    });
-                });
-            });
-
-            // Sinkronisasi ulang jika ukuran viewport berubah
-            window.addEventListener('resize', function() {
-                const currentActive = sidebarNav.querySelector('.nav-link.active') || sidebarNav.querySelector('.nav-link.gliding-target');
-                if (currentActive) {
-                    sidebarGlider.style.transition = 'none';
-                    sidebarGlider.style.top = currentActive.offsetTop + 'px';
-                }
-            });
-        })();
 
         // ===== Smooth Page Transition & Top Progress Bar =====
         const progressBar = document.getElementById('topProgressBar');

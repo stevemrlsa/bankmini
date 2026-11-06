@@ -36,10 +36,11 @@ Route::get('/', function () {
         } elseif ($role === 'Teller') {
             return redirect()->route('teller.dashboard');
         } elseif ($role === 'Saver') {
-            return redirect()->route('saver.dashboard');
+            \Illuminate\Support\Facades\Auth::logout();
         }
-    } elseif (\Illuminate\Support\Facades\Session::has('saver_id')) {
-        return redirect()->route('saver.dashboard');
+    }
+    if (\Illuminate\Support\Facades\Session::has('saver_id')) {
+        \Illuminate\Support\Facades\Session::forget(['saver_id', 'account_number']);
     }
     return view('landing');
 })->name('landing');

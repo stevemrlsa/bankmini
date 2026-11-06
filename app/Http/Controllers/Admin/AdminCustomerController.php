@@ -12,9 +12,10 @@ use App\Models\Member;
 use App\Models\Saver;
 use App\Models\Transaction;
 use App\Models\AccountingJournal;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Imports\SaversImport;
-use App\Exports\SaversTemplateExport;
+use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class AdminCustomerController extends Controller
 {
@@ -382,20 +383,55 @@ class AdminCustomerController extends Controller
      */
     public function downloadTemplate()
     {
-        if (class_exists(Excel::class)) {
-            return Excel::download(new SaversTemplateExport, 'template_onboarding_siswa.xlsx');
+        try {
+            if (class_exists(Spreadsheet::class)) {
+                $spreadsheet = new Spreadsheet();
+                $sheet = $spreadsheet->getActiveSheet();
+                $sheet->setTitle('Data Siswa');
+
+                // Header & Sample Data
+                $sheet->fromArray([
+                    ['Nama Siswa', 'NIS', 'Kelas', 'Jenis Kelamin (L/P)'],
+                    ['Ahmad Fauzi', '20261001', 'X RPL 1', 'L'],
+                    ['Siti Nurhaliza', '20261002', 'X AKL 2', 'P'],
+                    ['Budi Santoso', '20261003', 'XI DKV 1', 'L'],
+                ], null, 'A1');
+
+                // Styling
+                $sheet->getStyle('A1:D1')->applyFromArray([
+                    'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '16233F'],
+                    ],
+                ]);
+                foreach (range('A', 'D') as $col) {
+                    $sheet->getColumnDimension($col)->setAutoSize(true);
+                }
+
+                $writer = new Xlsx($spreadsheet);
+                return response()->streamDownload(function () use ($writer) {
+                    $writer->save('php://output');
+                }, 'template_onboarding_siswa.xlsx', [
+                    'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Fallback to CSV below
         }
 
         $headers = [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="template_onboarding_siswa.csv"',
         ];
 
         $callback = function () {
             $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
             fputcsv($file, ['Nama Siswa', 'NIS', 'Kelas', 'Jenis Kelamin (L/P)']);
             fputcsv($file, ['Ahmad Fauzi', '20261001', 'X RPL 1', 'L']);
             fputcsv($file, ['Siti Nurhaliza', '20261002', 'X AKL 2', 'P']);
+            fputcsv($file, ['Budi Santoso', '20261003', 'XI DKV 1', 'L']);
             fclose($file);
         };
 
@@ -403,12 +439,12 @@ class AdminCustomerController extends Controller
     }
 
     /**
-     * Execute Excel import.
+     * Execute Excel/CSV import.
      */
     public function import(Request $request)
     {
         $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+            'excel_file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
         ], [
             'excel_file.required' => 'Silakan pilih file Excel (.xlsx / .xls / .csv) terlebih dahulu.',
             'excel_file.mimes'    => 'Format file harus berupa Excel (.xlsx, .xls) atau CSV (.csv).',
@@ -416,18 +452,65 @@ class AdminCustomerController extends Controller
         ]);
 
         try {
-            if (class_exists(Excel::class)) {
-                Excel::import(new SaversImport, $request->file('excel_file'));
+            $file = $request->file('excel_file');
+            $extension = strtolower($file->getClientOriginalExtension());
+            $realPath = $file->getRealPath();
+
+            $rows = [];
+
+            if (in_array($extension, ['csv', 'txt'])) {
+                if (($handle = fopen($realPath, 'r')) !== false) {
+                    $firstLine = fgets($handle);
+                    rewind($handle);
+                    $separator = (substr_count($firstLine, ';') > substr_count($firstLine, ',')) ? ';' : ',';
+
+                    while (($data = fgetcsv($handle, 2000, $separator)) !== false) {
+                        $rows[] = $data;
+                    }
+                    fclose($handle);
+                }
             } else {
-                $path = $request->file('excel_file')->getRealPath();
-                $file = fopen($path, 'r');
-                $isHeader = true;
-                while (($row = fgetcsv($file, 1000, ',')) !== false) {
-                    if ($isHeader) { $isHeader = false; continue; }
-                    if (empty($row[0]) || empty($row[1])) continue;
-                    $studentId = trim((string)$row[1]);
-                    $studentName = trim((string)$row[0]);
-                    $gradeClass = trim((string)($row[2] ?? '-'));
+                if (class_exists(IOFactory::class)) {
+                    $spreadsheet = IOFactory::load($realPath);
+                    $worksheet = $spreadsheet->getActiveSheet();
+                    $rows = $worksheet->toArray(null, true, true, false);
+                } else {
+                    throw new \RuntimeException('Library PhpSpreadsheet belum tersedia untuk membaca format Excel.');
+                }
+            }
+
+            if (empty($rows)) {
+                return back()->with('error', 'File yang diunggah kosong atau tidak memiliki data.');
+            }
+
+            $importedCount = 0;
+            $isHeader = true;
+
+            DB::transaction(function () use ($rows, &$importedCount, &$isHeader) {
+                foreach ($rows as $row) {
+                    if (empty($row) || !is_array($row)) {
+                        continue;
+                    }
+
+                    $col0 = isset($row[0]) ? trim((string)$row[0]) : '';
+                    $col1 = isset($row[1]) ? trim((string)$row[1]) : '';
+
+                    if ($isHeader) {
+                        $isHeader = false;
+                        if (stripos($col0, 'nama') !== false || stripos($col1, 'nis') !== false) {
+                            continue;
+                        }
+                    }
+
+                    if (empty($col0) || empty($col1)) {
+                        continue;
+                    }
+
+                    $studentName = $col0;
+                    $studentId   = $col1;
+                    $gradeClass  = isset($row[2]) && !empty(trim((string)$row[2])) ? trim((string)$row[2]) : '-';
+                    $rawGender   = isset($row[3]) ? strtoupper(trim((string)$row[3])) : '';
+                    $gender      = in_array($rawGender, ['L', 'P', 'LAKI-LAKI', 'PEREMPUAN']) ? substr($rawGender, 0, 1) : null;
 
                     Saver::updateOrCreate(
                         ['student_id' => $studentId],
@@ -435,7 +518,7 @@ class AdminCustomerController extends Controller
                             'account_number' => null,
                             'student_name'   => $studentName,
                             'grade_class'    => $gradeClass,
-                            'gender'         => isset($row[3]) ? strtoupper(trim((string)$row[3])) : null,
+                            'gender'         => $gender,
                             'security_pin'   => Hash::make('123456'),
                             'password'       => Hash::make('123456'),
                             'status'         => 'inactive',
@@ -443,8 +526,7 @@ class AdminCustomerController extends Controller
                         ]
                     );
 
-                    // Sync to User and Member for Data Anggota
-                    $user = \App\Models\User::firstOrCreate(
+                    $user = User::firstOrCreate(
                         ['username' => 'siswa_' . $studentId],
                         [
                             'password'     => Hash::make('123456'),
@@ -454,7 +536,7 @@ class AdminCustomerController extends Controller
                         ]
                     );
 
-                    \App\Models\Member::updateOrCreate(
+                    Member::updateOrCreate(
                         ['student_id' => $studentId],
                         [
                             'user_id'         => $user->id,
@@ -464,14 +546,25 @@ class AdminCustomerController extends Controller
                             'status'          => 'inactive',
                         ]
                     );
+
+                    $importedCount++;
                 }
-                fclose($file);
+            });
+
+            if ($importedCount === 0) {
+                return back()->with('error', 'Tidak ada data siswa yang berhasil diimpor. Pastikan file sesuai template.');
             }
 
             return redirect()->route('admin.members.index')
-                ->with('success', 'Data siswa baru berhasil diimpor ke Data Anggota! Silakan lakukan aktivasi rekening.');
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal memproses file Excel: ' . $e->getMessage());
+                ->with('success', "Berhasil mengimpor {$importedCount} data siswa baru ke Data Anggota! Silakan lakukan aktivasi rekening.");
+        } catch (\Throwable $e) {
+            Log::error('Import data siswa gagal: ' . $e->getMessage(), [
+                'file'  => $e->getFile(),
+                'line'  => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
         }
     }
 }

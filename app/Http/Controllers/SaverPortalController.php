@@ -16,11 +16,11 @@ use App\Mail\SendOtpMail;
 class SaverPortalController extends Controller
 {
     /**
-     * Tampilkan form login (Dialihkan ke login terintegrasi utama)
+     * Tampilkan form login (Dialihkan ke login terintegrasi utama dengan pesan)
      */
     public function showLoginForm()
     {
-        return redirect()->route('login');
+        return redirect()->route('login')->with('error', 'Akses login web hanya diperuntukkan bagi Admin & Teller. Nasabah dianjurkan untuk menggunakan Aplikasi Mobile (APK) Bank Mini.');
     }
 
     /**
