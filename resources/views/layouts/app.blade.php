@@ -86,7 +86,7 @@
             z-index: 1030;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             box-shadow: none;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .sidebar-brand {
@@ -153,7 +153,7 @@
         .sidebar-nav {
             flex: 1 1 auto;
             overflow-y: auto;
-            overflow-x: hidden;
+            overflow-x: visible;
             display: flex;
             flex-direction: column;
             gap: 4px;
@@ -172,7 +172,7 @@
         .sidebar-glider {
             position: absolute;
             left: 0;
-            right: 0;
+            right: -6px;
             height: 46px;
             background: var(--bg-main);
             border-top-left-radius: 30px;
@@ -182,8 +182,9 @@
             z-index: 1;
             pointer-events: none;
             opacity: 0;
-            transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
-                        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow: 6px 0 0 0 var(--bg-main);
+            transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+                        height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
                         opacity 0.2s ease;
             will-change: transform;
         }
@@ -195,7 +196,7 @@
             top: -22px;
             width: 22px;
             height: 22px;
-            background: radial-gradient(circle at 0 0, transparent 22px, var(--bg-main) 22.5px);
+            background: radial-gradient(circle at 0 0, transparent 21.5px, var(--bg-main) 22px);
             pointer-events: none;
         }
 
@@ -206,7 +207,7 @@
             bottom: -22px;
             width: 22px;
             height: 22px;
-            background: radial-gradient(circle at 0 100%, transparent 22px, var(--bg-main) 22.5px);
+            background: radial-gradient(circle at 0 100%, transparent 21.5px, var(--bg-main) 22px);
             pointer-events: none;
         }
 
@@ -219,7 +220,7 @@
             color: rgba(255, 255, 255, 0.80);
             height: 46px;
             padding: 0 18px;
-            margin-right: 0;
+            margin-right: -6px;
             border-top-left-radius: 30px;
             border-bottom-left-radius: 30px;
             border-top-right-radius: 0;
@@ -1252,7 +1253,7 @@
             if (!animate) {
                 sidebarGlider.style.transition = 'none';
             } else {
-                sidebarGlider.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), height 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
+                sidebarGlider.style.transition = 'transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
             }
 
             const topPos = targetLink.offsetTop;
@@ -1264,48 +1265,33 @@
 
             if (!animate) {
                 void sidebarGlider.offsetWidth;
-                sidebarGlider.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), height 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
+                sidebarGlider.style.transition = 'transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
             }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             if (!sidebarNav || !sidebarGlider) return;
 
+            // Bersihkan sisa koordinat lama agar tidak terjadi pengulangan animasi lompat balik
+            sessionStorage.removeItem('bankmini_glider_top');
+
+            // Posisikan glider tepat di opsi aktif halaman saat ini secara instan (tanpa delay / tanpa lompat)
             const activeLink = sidebarNav.querySelector('.nav-link.active');
-            const prevTop = sessionStorage.getItem('bankmini_glider_top');
-
             if (activeLink) {
-                if (prevTop !== null && !isNaN(parseFloat(prevTop))) {
-                    sidebarGlider.style.transition = 'none';
-                    sidebarGlider.style.height = activeLink.offsetHeight + 'px';
-                    sidebarGlider.style.transform = `translateY(${prevTop}px)`;
-                    sidebarGlider.style.opacity = '1';
-
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            moveSidebarGlider(activeLink, true);
-                        });
-                    });
-                } else {
-                    moveSidebarGlider(activeLink, false);
-                }
-                sessionStorage.setItem('bankmini_glider_top', activeLink.offsetTop);
+                moveSidebarGlider(activeLink, false);
             }
 
-            // Saat klik item di sidebar, luncurkan putih sidebar ke opsi yang diklik
+            // Saat klik item di sidebar, luncurkan putih glider secara mulus ke opsi yang diklik
             const navLinks = sidebarNav.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
-                    if (activeLink) {
-                        sessionStorage.setItem('bankmini_glider_top', activeLink.offsetTop);
-                    }
                     navLinks.forEach(l => l.classList.remove('active'));
                     this.classList.add('active');
                     moveSidebarGlider(this, true);
                 });
             });
 
-            // Re-align saat window di-resize atau di-zoom
+            // Re-align saat window di-resize atau di-zoom (80%, 90%, 110%, 125%)
             window.addEventListener('resize', () => {
                 const currentActive = sidebarNav.querySelector('.nav-link.active');
                 if (currentActive) {

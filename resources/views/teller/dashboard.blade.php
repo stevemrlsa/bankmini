@@ -48,16 +48,13 @@
     }
 
     .shift-chip {
-        position: absolute;
-        right: 32px;
-        top: 28px;
-        z-index: 1;
+        position: relative;
         background: rgba(255, 255, 255, 0.12);
         border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 30px;
         padding: 7px 16px;
-        font-size: 0.76rem;
-        display: flex;
+        font-size: 0.78rem;
+        display: inline-flex;
         align-items: center;
         gap: 7px;
     }
@@ -425,29 +422,38 @@
         transform: scale(0.96);
     }
 
-    /* ===== QR Reader Centering & Symmetry ===== */
-    #qr-reader {
-        width: 100% !important;
-        max-width: 360px !important;
-        aspect-ratio: 1 / 1;
-        margin: 0 auto !important;
-        border-radius: 20px !important;
-        overflow: hidden !important;
-        border: 2px solid #E2E8F0 !important;
+    /* ===== QR Scanner Box (Persis Halaman Tarik Tunai) ===== */
+    .scanner-viewport-box {
+        position: relative;
         background: #090D16;
+        border-radius: 20px;
+        overflow: hidden;
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+
+    #qr-reader {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         position: relative;
     }
 
     #qr-reader video {
         width: 100% !important;
         height: 100% !important;
+        border-radius: 18px !important;
         object-fit: cover !important;
         display: block !important;
         margin: 0 auto !important;
-        border-radius: 18px !important;
     }
 
     #qr-reader__scan_region {
@@ -457,6 +463,42 @@
         align-items: center !important;
         justify-content: center !important;
     }
+
+    #qr-reader button, #qr-reader select, #qr-reader img {
+        display: none !important;
+    }
+
+    .scanner-laser-line {
+        position: absolute;
+        width: 80%;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(245,158,11,0) 0%, rgba(245,158,11,1) 50%, rgba(245,158,11,0) 100%);
+        box-shadow: 0 0 12px #F59E0B;
+        animation: scannerLaser 2s infinite ease-in-out;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    @keyframes scannerLaser {
+        0% { top: 15%; opacity: 0.4; }
+        50% { top: 85%; opacity: 1; }
+        100% { top: 15%; opacity: 0.4; }
+    }
+
+    .scanner-corner {
+        position: absolute;
+        width: 28px;
+        height: 28px;
+        border-color: #ffffff;
+        border-style: solid;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .corner-tl { top: 24px; left: 24px; border-width: 3px 0 0 3px; border-top-left-radius: 6px; }
+    .corner-tr { top: 24px; right: 24px; border-width: 3px 3px 0 0; border-top-right-radius: 6px; }
+    .corner-bl { bottom: 24px; left: 24px; border-width: 0 0 3px 3px; border-bottom-left-radius: 6px; }
+    .corner-br { bottom: 24px; right: 24px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
 </style>
 @endpush
 
@@ -467,21 +509,21 @@
          ======================================================== -->
     <div id="dashboardDefaultView">
         
-        <!-- Banner Sapaan + Aksi Tambah Kas Laci -->
+        <!-- Banner Sapaan + Aksi Tambah Kas Laci (Rapi & Tidak Bertumpuk) -->
         <div class="greeting-banner d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
+            <div style="position: relative; z-index: 2; max-width: 600px;">
                 <h2>Halo, {{ Auth::user()->officer_name ?? Auth::user()->username ?? 'Petugas Teller' }} 👋</h2>
-                <p>Loket kamu siap melayani transaksi hari ini. Jika uang kas fisik di laci menipis atau habis, gunakan tombol <strong>Tambah Kas Laci</strong>.</p>
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                    <div class="shift-chip mt-0"><i class="bi bi-clock-fill"></i> Shift Aktif · Modal Kas Laci: Rp {{ number_format($saldoAwal ?? ($activeShift->opening_balance ?? 0), 0, ',', '.') }}</div>
-                    <div class="shift-chip mt-0" style="background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.4);">
-                        <i class="bi bi-cash-stack"></i> Sisa Kas Fisik Laci: <strong>Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</strong>
+                <p class="mb-3">Loket kamu siap melayani transaksi hari ini. Jika uang kas fisik di laci menipis atau habis, gunakan tombol <strong>Tambah Kas Laci</strong>.</p>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <div class="shift-chip"><i class="bi bi-clock-fill"></i> Shift Aktif · Modal Awal: Rp {{ number_format($saldoAwal ?? ($activeShift->opening_balance ?? 0), 0, ',', '.') }}</div>
+                    <div class="shift-chip" style="background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.4); color: #A7F3D0;">
+                        <i class="bi bi-cash-stack"></i> Sisa Kas Fisik Laci: <strong class="text-white">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</strong>
                     </div>
                 </div>
             </div>
-            <div class="d-flex flex-column gap-2" style="z-index: 2;">
-                <button type="button" class="btn btn-light fw-bold rounded-pill px-4 py-2 shadow-sm" style="color: #16233F; font-size: 0.86rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
-                    <i class="bi bi-plus-circle-fill text-success me-1"></i> Tambah Kas Laci
+            <div class="d-flex flex-column align-items-start align-items-md-end gap-2" style="position: relative; z-index: 2;">
+                <button type="button" class="btn btn-light fw-bold rounded-pill px-4 py-2 shadow-sm d-inline-flex align-items-center gap-2" style="color: #16233F; font-size: 0.88rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
+                    <i class="bi bi-plus-circle-fill text-success fs-5"></i> Tambah Kas Laci
                 </button>
             </div>
         </div>
@@ -501,7 +543,7 @@
             </div>
         @endif
 
-        <!-- Scanner QR Code (Default Camera State) -->
+        <!-- Scanner QR Code (Persis Halaman Tarik Tunai - Tengah & Simetris) -->
         <div class="card mb-4" style="border-radius: 20px; border: 1px solid var(--border-soft); overflow: hidden; box-shadow: var(--shadow-card);">
             <div class="card-header text-white d-flex align-items-center justify-content-between" style="border-bottom: none; background: linear-gradient(135deg, #16233F 0%, #24355A 100%) !important; padding: 18px 24px;">
                 <div class="d-flex align-items-center">
@@ -516,7 +558,16 @@
                 </span>
             </div>
             <div class="card-body p-4 bg-white text-center">
-                <div id="qr-reader"></div>
+                <div class="scanner-viewport-box">
+                    <div id="qr-reader"></div>
+
+                    <!-- Overlay Laser & Corner Frame (Persis Halaman Tarik Tunai) -->
+                    <div class="scanner-laser-line"></div>
+                    <div class="scanner-corner corner-tl"></div>
+                    <div class="scanner-corner corner-tr"></div>
+                    <div class="scanner-corner corner-bl"></div>
+                    <div class="scanner-corner corner-br"></div>
+                </div>
                 <div id="qr-reader-results" class="mt-3 text-muted small fw-semibold">
                     Arahkan Kode QR kartu tabungan siswa ke tengah kotak kamera
                 </div>
@@ -1091,14 +1142,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Global Active Student Object & Scan Lock
     let activeStudent = null;
-    let html5QrcodeScanner = null;
+    let html5QrCode = null;
     let isProcessing = false;
 
     function pauseScanner() {
         isProcessing = true;
-        if (html5QrcodeScanner) {
+        if (html5QrCode) {
             try {
-                html5QrcodeScanner.pause(true);
+                html5QrCode.pause(true);
             } catch (err) {
                 // Ignore if pause is not supported
             }
@@ -1107,16 +1158,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function resumeScanner() {
         isProcessing = false;
-        if (html5QrcodeScanner) {
+        if (html5QrCode) {
             try {
-                html5QrcodeScanner.resume();
+                html5QrCode.resume();
             } catch (err) {
                 // Ignore if resume is not supported
             }
         }
         const qrResultEl = document.getElementById('qr-reader-results');
         if (qrResultEl) {
-            qrResultEl.innerText = "Arahkan QR Code kartu tabungan siswa ke depan kamera";
+            qrResultEl.innerText = "Arahkan Kode QR kartu tabungan siswa ke tengah kotak kamera";
         }
     }
 
@@ -1482,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ========================================================
-    // SCANNER INITIALIZATION
+    // SCANNER INITIALIZATION (Html5Qrcode - Kamera Simetris di Tengah)
     // ========================================================
     function onScanSuccess(decodedText, decodedResult) {
         // GATING & LOCK: Cegah loop dan request flood puluhan kali per detik
@@ -1495,12 +1546,27 @@ document.addEventListener('DOMContentLoaded', function () {
         // Continuous scan loop
     }
 
-    html5QrcodeScanner = new Html5QrcodeScanner(
-        "qr-reader", 
-        { fps: 12, qrbox: { width: 250, height: 250 } }, 
-        false
-    );
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    try {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        html5QrCode.start(
+            { facingMode: "environment" },
+            {
+                fps: 15,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            },
+            onScanSuccess,
+            onScanFailure
+        ).catch(err => {
+            console.warn("Kamera otomatis belum aktif atau izin ditolak:", err);
+            const qrResultEl = document.getElementById('qr-reader-results');
+            if (qrResultEl) {
+                qrResultEl.innerHTML = '<span class="text-muted"><i class="bi bi-info-circle me-1"></i> Klik untuk mengizinkan akses kamera pemindai QR</span>';
+            }
+        });
+    } catch (e) {
+        console.error("Gagal inisialisasi Html5Qrcode:", e);
+    }
 
     // Cek jika ada parameter ?account_number= di URL (misal redirect lama), bersihkan agar tidak loop
     const urlParams = new URLSearchParams(window.location.search);
