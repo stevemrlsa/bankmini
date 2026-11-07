@@ -11,6 +11,16 @@ use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 
 class SaversImport implements ToModel, WithStartRow, SkipsEmptyRows
 {
+    protected static ?string $cachedHash = null;
+
+    protected function getDefaultHash(): string
+    {
+        if (static::$cachedHash === null) {
+            static::$cachedHash = Hash::make('123456');
+        }
+        return static::$cachedHash;
+    }
+
     /**
      * Mulai membaca baris dari baris ke-2 (melewati baris header)
      */
@@ -38,6 +48,8 @@ class SaversImport implements ToModel, WithStartRow, SkipsEmptyRows
             return null;
         }
 
+        $defaultHash = $this->getDefaultHash();
+
         // UpdateOrCreate berdasarkan NIS (student_id) untuk mencegah duplikasi di Saver
         $saver = Saver::updateOrCreate(
             ['student_id' => $studentId],
@@ -46,9 +58,9 @@ class SaversImport implements ToModel, WithStartRow, SkipsEmptyRows
                 'student_name'   => $studentName,
                 'grade_class'    => $gradeClass,
                 'gender'         => $gender,
-                'security_pin'   => Hash::make('123456'), // Default PIN 123456
-                'password'       => Hash::make('123456'), // Default Password 123456
-                'status'         => 'inactive',          // Wajib 'inactive'
+                'security_pin'   => $defaultHash, // Default PIN 123456
+                'password'       => $defaultHash, // Default Password 123456
+                'status'         => 'inactive',   // Wajib 'inactive'
                 'saldo'          => 0,
             ]
         );
@@ -57,7 +69,7 @@ class SaversImport implements ToModel, WithStartRow, SkipsEmptyRows
         $user = \App\Models\User::firstOrCreate(
             ['username' => 'siswa_' . $studentId],
             [
-                'password'     => Hash::make('123456'),
+                'password'     => $defaultHash,
                 'officer_name' => $studentName,
                 'role'         => 'Saver',
                 'status'       => 'Aktif'

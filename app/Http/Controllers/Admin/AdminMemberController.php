@@ -194,6 +194,10 @@ class AdminMemberController extends Controller
             $hasMembersTable     = Schema::hasTable('members');
             $hasMemberStatusCol  = $hasMembersTable && Schema::hasColumn('members', 'status');
 
+            // Optimasi performa kritis: Hash '123456' CUKUP 1 KALI saja di luar loop!
+            // Menghindari timeout Bcrypt CPU di hosting (mengubah proses ribuan hash menjadi 1 hash instan).
+            $defaultHash = Hash::make('123456');
+
             $importedCount = 0;
             $isHeader = true;
 
@@ -207,7 +211,8 @@ class AdminMemberController extends Controller
                 $hasSaverSaldoCol,
                 $hasUserStatusCol,
                 $hasMembersTable,
-                $hasMemberStatusCol
+                $hasMemberStatusCol,
+                $defaultHash
             ) {
                 foreach ($rows as $row) {
                     if (empty($row) || !is_array($row)) {
@@ -238,13 +243,13 @@ class AdminMemberController extends Controller
                     $saverData = [
                         'student_name'   => $studentName,
                         'grade_class'    => $gradeClass,
-                        'security_pin'   => Hash::make('123456'),
+                        'security_pin'   => $defaultHash,
                     ];
                     if ($hasSaverSaldoCol) {
                         $saverData['saldo'] = 0;
                     }
                     if ($hasSaverPasswordCol) {
-                        $saverData['password'] = Hash::make('123456');
+                        $saverData['password'] = $defaultHash;
                     }
                     if ($hasSaverGenderCol) {
                         $saverData['gender'] = $gender;
@@ -268,7 +273,7 @@ class AdminMemberController extends Controller
 
                     // B. User record
                     $userAttributes = [
-                        'password'     => Hash::make('123456'),
+                        'password'     => $defaultHash,
                         'officer_name' => $studentName,
                         'role'         => 'Saver',
                     ];
