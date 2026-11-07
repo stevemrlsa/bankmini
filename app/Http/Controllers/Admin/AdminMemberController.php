@@ -24,37 +24,78 @@ class AdminMemberController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Query inactive students directly from Saver model
-        $query = Saver::where('status', 'inactive');
+        // 1. Base query: siswa belum aktif (kecuali yang sudah lulus / alumni)
+        $baseQuery = Saver::where('status', 'inactive')
+            ->where(function ($q) {
+                $q->whereNull('grade_class')
+                  ->orWhere('grade_class', 'not like', 'Lulus%');
+            });
 
-        // 2. Search by Student Name or NIS (student_id)
+        $totalInactiveCount = (clone $baseQuery)->count();
+
+        // 2. Distinct classes sorted naturally
+        $classes = (clone $baseQuery)
+            ->whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->distinct()
+            ->pluck('grade_class')
+            ->sort(function ($a, $b) {
+                return strnatcasecmp($a, $b);
+            })
+            ->values();
+
+        $query = clone $baseQuery;
+        $currentClass = null;
+        $prevClass = null;
+        $nextClass = null;
+        $currentClassIndex = 0;
+        $totalClasses = $classes->count();
+
+        // 3. Search by Student Name or NIS (student_id)
         if ($request->filled('search')) {
             $searchTerm = trim($request->search);
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('student_name', 'like', '%' . $searchTerm . '%')
                   ->orWhere('student_id', 'like', '%' . $searchTerm . '%');
             });
-        }
+            if ($request->filled('class')) {
+                $currentClass = trim($request->class);
+                $query->where('grade_class', $currentClass);
+            }
+        } else {
+            // Mode Tampilan Per Kelas (1 tabel = 1 kelas dengan tombol Kelas Sebelumnya & Selanjutnya)
+            if ($classes->isNotEmpty()) {
+                $requestedClass = $request->query('class');
+                if ($requestedClass && $classes->contains($requestedClass)) {
+                    $currentClass = $requestedClass;
+                } else {
+                    $currentClass = $classes->first();
+                }
 
-        // 3. Filter by Class (grade_class)
-        if ($request->filled('class')) {
-            $selectedClass = trim($request->class);
-            $query->where('grade_class', $selectedClass);
+                $idx = $classes->search($currentClass);
+                if ($idx !== false) {
+                    $currentClassIndex = $idx + 1;
+                    $prevClass = $idx > 0 ? $classes->get($idx - 1) : null;
+                    $nextClass = $idx < ($totalClasses - 1) ? $classes->get($idx + 1) : null;
+                }
+
+                $query->where('grade_class', $currentClass);
+            }
         }
 
         // 4. Default sort by NIS (student_id) ascending
         $members = $query->orderBy('student_id', 'asc')->get();
 
-        // 5. Distinct classes for filter dropdown
-        $classes = Saver::where('status', 'inactive')
-            ->whereNotNull('grade_class')
-            ->where('grade_class', '!=', '')
-            ->distinct()
-            ->pluck('grade_class')
-            ->sort()
-            ->values();
-
-        return view('admin.member-data', compact('members', 'classes'));
+        return view('admin.member-data', compact(
+            'members',
+            'classes',
+            'currentClass',
+            'prevClass',
+            'nextClass',
+            'currentClassIndex',
+            'totalClasses',
+            'totalInactiveCount'
+        ));
     }
 
     /**

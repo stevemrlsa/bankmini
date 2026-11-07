@@ -18,25 +18,34 @@ class TransactionController extends Controller
         $tellerId = auth()->id();
         $today = now()->startOfDay();
 
-        // Total setoran oleh teller ini hari ini
+        $activeShift = TellerShift::where('user_id', $tellerId)
+            ->where('status', 'Open')
+            ->first();
+
+        $shiftStart = $activeShift ? $activeShift->opened_at : $today;
+        $saldoAwal = $activeShift ? (float) $activeShift->opening_balance : 0;
+
+        // Total setoran oleh teller ini sejak shift dibuka / hari ini
         $totalSetoran = Transaction::where('user_id', $tellerId)
-            ->where('transaction_type', 'Deposit')
-            ->whereDate('transaction_date', '>=', $today)
+            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
+            ->where('created_at', '>=', $shiftStart)
+            ->where('status', '!=', 'Failed')
             ->sum('amount');
 
-        // Total penarikan oleh teller ini hari ini
+        // Total penarikan oleh teller ini sejak shift dibuka / hari ini
         $totalPenarikan = Transaction::where('user_id', $tellerId)
-            ->where('transaction_type', 'Withdrawal')
-            ->whereDate('transaction_date', '>=', $today)
+            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+            ->where('created_at', '>=', $shiftStart)
+            ->where('status', '!=', 'Failed')
             ->sum('amount');
 
         // Jumlah transaksi oleh teller ini hari ini
         $jumlahTransaksi = Transaction::where('user_id', $tellerId)
-            ->whereDate('transaction_date', '>=', $today)
+            ->whereDate('created_at', '>=', $today)
             ->count();
 
-        // Saldo kas loket = Setoran - Penarikan
-        $saldoKas = $totalSetoran - $totalPenarikan;
+        // Saldo kas fisik di laci = Modal Kas Laci (Opening + TopUp) + Setoran - Penarikan
+        $saldoKas = $saldoAwal + $totalSetoran - $totalPenarikan;
 
         // Transaksi terbaru oleh teller ini
         $latestTransactions = Transaction::with('saver')
@@ -46,6 +55,8 @@ class TransactionController extends Controller
             ->get();
 
         return view('teller.dashboard', compact(
+            'activeShift',
+            'saldoAwal',
             'totalSetoran',
             'totalPenarikan',
             'jumlahTransaksi',
@@ -259,7 +270,28 @@ class TransactionController extends Controller
 
     public function createPenarikan()
     {
-        return view('teller.penarikan');
+        $activeShift = TellerShift::where('user_id', auth()->id())
+            ->where('status', 'Open')
+            ->first();
+
+        $uangFisikDiLaci = 0;
+        if ($activeShift) {
+            $totalSetoran = Transaction::where('user_id', auth()->id())
+                ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
+                ->where('created_at', '>=', $activeShift->opened_at)
+                ->where('status', '!=', 'Failed')
+                ->sum('amount');
+
+            $totalPenarikan = Transaction::where('user_id', auth()->id())
+                ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+                ->where('created_at', '>=', $activeShift->opened_at)
+                ->where('status', '!=', 'Failed')
+                ->sum('amount');
+
+            $uangFisikDiLaci = (float) $activeShift->opening_balance + $totalSetoran - $totalPenarikan;
+        }
+
+        return view('teller.penarikan', compact('activeShift', 'uangFisikDiLaci'));
     }
 
     public function storePenarikan(Request $request)

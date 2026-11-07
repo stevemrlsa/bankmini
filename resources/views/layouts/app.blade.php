@@ -66,12 +66,12 @@
             background-color: var(--bg-main);
         }
 
-        /* ===== Sidebar (Biru Dongker) ===== */
+        /* ===== Sidebar (Biru Dongker Curved Scoop Design) ===== */
         .sidebar {
             width: var(--sidebar-w);
             min-width: var(--sidebar-w);
             max-width: var(--sidebar-w);
-            flex-shrink: 0;
+            flex: 0 0 var(--sidebar-w);
             background: linear-gradient(180deg, #16233F 0%, #0E1830 100%);
             color: #FFFFFF;
             position: fixed;
@@ -82,10 +82,10 @@
             height: 100dvh;
             display: flex;
             flex-direction: column;
-            padding: 24px 0 16px 0;
+            padding: 26px 0 20px 18px;
             z-index: 1030;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 2px 0 18px rgba(15, 23, 42, 0.08);
+            box-shadow: none;
             overflow: hidden;
         }
 
@@ -93,11 +93,12 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 0 20px 20px 20px;
+            padding: 0 18px 20px 6px;
             text-decoration: none;
             flex-shrink: 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 10px;
+            margin-right: 18px;
+            margin-bottom: 8px;
         }
 
         .sidebar-brand .brand-icon {
@@ -127,7 +128,7 @@
         .sidebar-brand .brand-text strong {
             display: block;
             font-weight: 700;
-            font-size: 1.12rem;
+            font-size: 1.15rem;
             color: #ffffff;
             letter-spacing: -0.02em;
         }
@@ -140,11 +141,13 @@
 
         .sidebar-section-label {
             font-size: 0.68rem;
-            color: rgba(255, 255, 255, 0.45);
-            padding: 14px 16px 6px 16px;
+            color: rgba(255, 255, 255, 0.48);
+            padding: 12px 14px 4px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
+            position: relative;
+            z-index: 2;
         }
 
         .sidebar-nav {
@@ -154,34 +157,77 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
-            padding: 0 12px;
-            scrollbar-width: thin;
-            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+            position: relative;
+            padding: 4px 0 12px 0;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
 
         .sidebar-nav::-webkit-scrollbar {
-            width: 4px;
+            width: 0px;
+            display: none;
         }
-        .sidebar-nav::-webkit-scrollbar-track {
-            background: transparent;
+
+        /* ===== Sliding Curved Scoop Glider ===== */
+        .sidebar-glider {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 46px;
+            background: var(--bg-main);
+            border-top-left-radius: 30px;
+            border-bottom-left-radius: 30px;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0;
+            transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                        height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.2s ease;
+            will-change: transform;
         }
-        .sidebar-nav::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
+
+        .sidebar-glider::before {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -22px;
+            width: 22px;
+            height: 22px;
+            background: radial-gradient(circle at 0 0, transparent 22px, var(--bg-main) 22.5px);
+            pointer-events: none;
+        }
+
+        .sidebar-glider::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            bottom: -22px;
+            width: 22px;
+            height: 22px;
+            background: radial-gradient(circle at 0 100%, transparent 22px, var(--bg-main) 22.5px);
+            pointer-events: none;
         }
 
         .sidebar-nav .nav-link {
+            position: relative;
+            z-index: 2;
             display: flex;
             align-items: center;
             gap: 12px;
             color: rgba(255, 255, 255, 0.80);
-            height: 44px;
-            padding: 0 16px;
-            border-radius: 12px;
+            height: 46px;
+            padding: 0 18px;
+            margin-right: 0;
+            border-top-left-radius: 30px;
+            border-bottom-left-radius: 30px;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
             font-size: 0.88rem;
             font-weight: 500;
-            transition: all 0.2s ease;
-            background: transparent;
+            transition: color 0.25s ease, transform 0.2s ease, background-color 0.2s ease;
+            background: transparent !important;
             text-decoration: none;
             white-space: nowrap;
             overflow: hidden;
@@ -189,17 +235,18 @@
         }
 
         .sidebar-nav .nav-link i {
-            font-size: 1.1rem;
+            font-size: 1.12rem;
             width: 22px;
             text-align: center;
             flex-shrink: 0;
             opacity: 0.85;
-            transition: color 0.18s ease, opacity 0.18s ease;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease;
         }
 
         .sidebar-nav .nav-link:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.08) !important;
             color: #ffffff;
+            transform: translateX(4px);
         }
 
         .sidebar-nav .nav-link:hover:not(.active) i {
@@ -208,21 +255,22 @@
         }
 
         .sidebar-nav .nav-link.active {
-            background: #FFFFFF !important;
+            background: transparent !important;
             color: var(--primary) !important;
             font-weight: 600;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            box-shadow: none;
         }
 
         .sidebar-nav .nav-link.active i {
             color: var(--primary) !important;
             opacity: 1;
+            transform: scale(1.08);
         }
 
         .sidebar-footer {
             flex-shrink: 0;
             border-top: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 12px 12px 0 12px;
+            padding: 12px 18px 0 0;
             margin-top: auto;
         }
 
@@ -832,18 +880,29 @@
             </a>
 
             <nav class="sidebar-nav" id="sidebarNav">
+                <div class="sidebar-glider" id="sidebarGlider"></div>
                 @auth
                     @if(in_array(Auth::user()->role, ['Administrator', 'Admin', 'Admin Utama', 'admin_utama', 'Supervisor']))
                         <span class="sidebar-section-label">Menu Utama</span>
                         <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                             <i class="bi bi-grid-1x2-fill"></i> Dashboard
                         </a>
-                        <a href="{{ route('admin.savers.index') }}" class="nav-link {{ request()->routeIs('admin.savers.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.savers.index') }}" class="nav-link {{ request()->routeIs('admin.savers.*') || request()->routeIs('admin.customers.*') ? 'active' : '' }}">
                             <i class="bi bi-people-fill"></i> Data Nasabah
                         </a>
-                        <a href="{{ route('admin.members.index') }}" class="nav-link {{ request()->routeIs('admin.members.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.members.index') }}" class="nav-link {{ request()->routeIs('admin.members.*') || request()->routeIs('admin.member-data.*') ? 'active' : '' }}">
                             <i class="bi bi-person-lines-fill"></i> Data Anggota
                         </a>
+                        @if(Route::has('admin.alumni.index'))
+                        <a href="{{ route('admin.alumni.index') }}" class="nav-link {{ request()->routeIs('admin.alumni.*') ? 'active' : '' }}">
+                            <i class="bi bi-mortarboard-fill"></i> Data Siswa Lulus
+                        </a>
+                        @endif
+                        @if(Route::has('admin.transactions.index'))
+                        <a href="{{ route('admin.transactions.index') }}" class="nav-link {{ request()->routeIs('admin.transactions.*') ? 'active' : '' }}">
+                            <i class="bi bi-arrow-left-right"></i> Riwayat Transaksi
+                        </a>
+                        @endif
 
                         <span class="sidebar-section-label">Laporan & Audit</span>
                         <a href="{{ route('admin.approval.index') }}" class="nav-link {{ request()->routeIs('admin.approval.*') || request()->routeIs('admin.shifts.*') ? 'active' : '' }}">
@@ -852,7 +911,7 @@
                         <a href="{{ route('admin.reports.monthly') }}" class="nav-link {{ request()->routeIs('admin.reports.monthly*') ? 'active' : '' }}">
                             <i class="bi bi-calendar3-range"></i> Laporan Bulanan
                         </a>
-                        <a href="{{ route('admin.journals.index') }}" class="nav-link {{ request()->routeIs('admin.journals.*') ? 'active' : '' }}">
+                        <a href="{{ route('admin.journals.index') }}" class="nav-link {{ request()->routeIs('admin.journals.*') || request()->routeIs('admin.balance.*') ? 'active' : '' }}">
                             <i class="bi bi-journal-bookmark-fill"></i> Jurnal Akuntansi
                         </a>
                         <a href="{{ route('admin.audit.index') }}" class="nav-link {{ request()->routeIs('admin.audit.*') ? 'active' : '' }}">
@@ -915,6 +974,12 @@
                     <div class="topbar-page-title">
                         @if(View::hasSection('header_title'))
                             @yield('header_title')
+                        @elseif(request()->routeIs('admin.alumni.*'))
+                            Data Siswa Lulus (Alumni)
+                        @elseif(request()->routeIs('admin.transactions.*'))
+                            Riwayat Transaksi
+                        @elseif(request()->routeIs('admin.balance.*'))
+                            Ringkasan Saldo Tersimpan
                         @elseif(request()->routeIs('admin.approval.*') || request()->routeIs('admin.shifts.*'))
                             Approval Kas Teller
                         @elseif(request()->routeIs('admin.reports.*'))
@@ -1058,19 +1123,52 @@
                 </div>
             </header>
 
+            <!-- ===== Floating Action Toast Notification (Global) ===== -->
+            @if(session('success') || session('error') || $errors->any())
+                <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999; max-width: 420px; width: 100%; pointer-events: none;">
+                    @if(session('success'))
+                        <div class="toast show align-items-center border-0 shadow-lg mb-2 w-100" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 16px; background: #ECFDF5; color: #065F46; border-left: 5px solid #10B981 !important; pointer-events: auto;">
+                            <div class="d-flex p-3 align-items-center">
+                                <i class="bi bi-check-circle-fill fs-4 me-3 text-success"></i>
+                                <div class="toast-body p-0 fw-semibold" style="font-size: 0.85rem;">
+                                    <div class="fw-bold text-success mb-1">Aksi Berhasil</div>
+                                    {{ session('success') }}
+                                </div>
+                                <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if(session('error') || $errors->any())
+                        <div class="toast show align-items-center border-0 shadow-lg w-100" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 16px; background: #FEF2F2; color: #991B1B; border-left: 5px solid #EF4444 !important; pointer-events: auto;">
+                            <div class="d-flex p-3 align-items-center">
+                                <i class="bi bi-exclamation-triangle-fill fs-4 me-3 text-danger"></i>
+                                <div class="toast-body p-0 fw-semibold" style="font-size: 0.85rem;">
+                                    <div class="fw-bold text-danger mb-1">Aksi Gagal</div>
+                                    {{ session('error') ?: $errors->first() }}
+                                </div>
+                                <button type="button" class="btn-close ms-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             <!-- ===== Content ===== -->
             <main class="content-area">
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert" style="border-radius: 12px; border: 1px solid #A7F3D0; background-color: #D1FAE5; color: #065F46;">
-                        {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                @if (session('success') && !request()->routeIs('profile.*') && !request()->routeIs('teller.activations.*'))
+                    <div class="alert alert-success alert-dismissible fade show shadow-sm d-flex align-items-center gap-2" role="alert" style="border-radius: 12px; border: 1px solid #A7F3D0; background-color: #D1FAE5; color: #065F46;">
+                        <i class="bi bi-check-circle-fill fs-5 text-success"></i>
+                        <div>{{ session('success') }}</div>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @endif
 
-                @if (session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert" style="border-radius: 12px; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
-                        {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                @if (session('error') && !request()->routeIs('profile.*') && !request()->routeIs('teller.activations.*'))
+                    <div class="alert alert-danger alert-dismissible fade show shadow-sm d-flex align-items-center gap-2" role="alert" style="border-radius: 12px; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 text-danger"></i>
+                        <div>{{ session('error') }}</div>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @endif
 
@@ -1093,6 +1191,16 @@
 
         toggleBtn?.addEventListener('click', toggleSidebar);
         backdrop?.addEventListener('click', toggleSidebar);
+
+        // Auto-hide global toast notifications after 5.5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                document.querySelectorAll('.toast.show').forEach(function(t) {
+                    t.classList.remove('show');
+                    t.style.display = 'none';
+                });
+            }, 5500);
+        });
 
         // Pindahkan modal langsung ke <body> saat dibuka agar tidak terperangkap dalam stacking context / transform
         document.addEventListener('show.bs.modal', function (event) {
@@ -1133,8 +1241,78 @@
             return prefix == undefined ? rupiah : (rupiah ? 'Rp ' + rupiah : '');
         }
 
-        // ===== Smooth Page Transition & Top Progress Bar =====
+        // ===== Sliding Sidebar Glider & Smooth Page Transition =====
+        const sidebarNav = document.getElementById('sidebarNav');
+        const sidebarGlider = document.getElementById('sidebarGlider');
         const progressBar = document.getElementById('topProgressBar');
+
+        function moveSidebarGlider(targetLink, animate = true) {
+            if (!sidebarNav || !sidebarGlider || !targetLink) return;
+
+            if (!animate) {
+                sidebarGlider.style.transition = 'none';
+            } else {
+                sidebarGlider.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), height 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
+            }
+
+            const topPos = targetLink.offsetTop;
+            const itemHeight = targetLink.offsetHeight;
+
+            sidebarGlider.style.height = itemHeight + 'px';
+            sidebarGlider.style.transform = `translateY(${topPos}px)`;
+            sidebarGlider.style.opacity = '1';
+
+            if (!animate) {
+                void sidebarGlider.offsetWidth;
+                sidebarGlider.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), height 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!sidebarNav || !sidebarGlider) return;
+
+            const activeLink = sidebarNav.querySelector('.nav-link.active');
+            const prevTop = sessionStorage.getItem('bankmini_glider_top');
+
+            if (activeLink) {
+                if (prevTop !== null && !isNaN(parseFloat(prevTop))) {
+                    sidebarGlider.style.transition = 'none';
+                    sidebarGlider.style.height = activeLink.offsetHeight + 'px';
+                    sidebarGlider.style.transform = `translateY(${prevTop}px)`;
+                    sidebarGlider.style.opacity = '1';
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            moveSidebarGlider(activeLink, true);
+                        });
+                    });
+                } else {
+                    moveSidebarGlider(activeLink, false);
+                }
+                sessionStorage.setItem('bankmini_glider_top', activeLink.offsetTop);
+            }
+
+            // Saat klik item di sidebar, luncurkan putih sidebar ke opsi yang diklik
+            const navLinks = sidebarNav.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (activeLink) {
+                        sessionStorage.setItem('bankmini_glider_top', activeLink.offsetTop);
+                    }
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    moveSidebarGlider(this, true);
+                });
+            });
+
+            // Re-align saat window di-resize atau di-zoom
+            window.addEventListener('resize', () => {
+                const currentActive = sidebarNav.querySelector('.nav-link.active');
+                if (currentActive) {
+                    moveSidebarGlider(currentActive, false);
+                }
+            });
+        });
 
         window.addEventListener('pageshow', function() {
             if (progressBar) {
@@ -1153,14 +1331,12 @@
             if (!link) return;
 
             const href = link.getAttribute('href');
-            // Abaikan jika bukan internal navigation, javascript, hash, new tab, modal trigger, atau download
             if (!href || href.startsWith('#') || href.startsWith('javascript') || href === '' || 
                 link.target === '_blank' || link.hasAttribute('download') || 
                 link.getAttribute('data-bs-toggle') || link.classList.contains('dropdown-toggle')) {
                 return;
             }
 
-            // Pastikan link berada di host yang sama
             if (link.hostname === window.location.hostname) {
                 if (progressBar) {
                     progressBar.style.opacity = '1';
@@ -1175,7 +1351,7 @@
             }
         });
 
-        // ===== Notification System AJAX & Real-Time Sync =====
+        // ===== Notification System AJAX & Idle Session Auto-Logout =====
         document.addEventListener('DOMContentLoaded', function() {
             const markAllReadBtn = document.getElementById('markAllReadBtn');
             if (markAllReadBtn) {
@@ -1209,8 +1385,43 @@
             }
 
             @auth
-            // Pengecekan notifikasi berkala di latar belakang (setiap 30 detik)
+            // Sistem Idle Session Timeout (Otomatis kembali ke halaman Login jika tidak ada aksi selama 15 menit)
+            const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 menit
+            let lastUserActivity = Date.now();
+
+            function resetIdleTimer() {
+                lastUserActivity = Date.now();
+            }
+
+            ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(function(evt) {
+                window.addEventListener(evt, resetIdleTimer, { passive: true });
+            });
+
+            function triggerAutoLogout() {
+                fetch("{{ route('logout') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                }).finally(function() {
+                    window.location.href = "{{ route('login', ['expired' => 1]) }}";
+                });
+            }
+
+            // Cek aktivitas idle setiap 15 detik
             setInterval(function() {
+                if (Date.now() - lastUserActivity >= IDLE_LIMIT_MS) {
+                    triggerAutoLogout();
+                }
+            }, 15000);
+
+            // Pengecekan notifikasi berkala di latar belakang (hanya jika pengguna baru saja aktif dalam 2 menit terakhir agar tidak menahan session yang idle)
+            setInterval(function() {
+                if (Date.now() - lastUserActivity > 2 * 60 * 1000) {
+                    return;
+                }
+
                 fetch("{{ route('notifications.fetch') }}", {
                     headers: {
                         'Accept': 'application/json',
@@ -1218,6 +1429,10 @@
                     }
                 })
                 .then(res => {
+                    if (res.status === 401 || res.status === 419) {
+                        window.location.href = "{{ route('login', ['expired' => 1]) }}";
+                        throw new Error('Session expired');
+                    }
                     if (!res.ok) throw new Error('Network error');
                     return res.json();
                 })

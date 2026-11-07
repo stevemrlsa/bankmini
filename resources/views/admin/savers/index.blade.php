@@ -205,6 +205,11 @@
 
         <!-- Tombol Aksi Massal -->
         <div class="d-flex gap-2 flex-wrap align-items-center">
+            @if(Route::has('admin.alumni.index'))
+                <a href="{{ route('admin.alumni.index') }}" class="btn btn-outline-dark rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem; border-radius: 12px;">
+                    <i class="bi bi-mortarboard me-1"></i> Data Siswa Lulus (Alumni)
+                </a>
+            @endif
             <!-- Tombol Naik Kelas Massal -->
             <button type="button" class="btn-primary-navy" style="background: linear-gradient(135deg, #1E3A8A, #3B5BA5);" data-bs-toggle="modal" data-bs-target="#modalBulkPromote">
                 <i class="bi bi-mortarboard-fill"></i> Naik Kelas Massal

@@ -20,60 +20,98 @@ class TellerActivationController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Fetch inactive students from Saver model
-        $query = Saver::whereIn('status', ['inactive', 'Belum Aktif', 'Nonaktif', 'pending']);
-
-        // 2. Search by Student Name or NIS (student_id)
-        if ($request->filled('search')) {
-            $searchTerm = trim($request->search);
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('student_name', 'like', '%' . $searchTerm . '%')
-                  ->orWhere('student_id', 'like', '%' . $searchTerm . '%');
-            });
-        }
-
-        // 3. Filter by Class (grade_class)
-        if ($request->filled('class')) {
-            $selectedClass = trim($request->class);
-            $query->where('grade_class', $selectedClass);
-        }
-
-        // 4. Default sort by NIS (student_id) ascending
-        $members = $query->orderBy('student_id', 'asc')->get();
-
-        // If no records in Saver, check Member table for inactive members
-        if ($members->isEmpty() && !$request->filled('search') && !$request->filled('class')) {
+        // Sinkronisasi awal jika tabel savers belum memiliki data dari members
+        if (Saver::whereIn('status', ['inactive', 'Belum Aktif', 'Nonaktif', 'pending'])->count() === 0) {
             $inactiveMembers = Member::whereIn('status', ['inactive', 'Belum Aktif'])->get();
             if ($inactiveMembers->isNotEmpty()) {
+                $defaultHash = Hash::make('123456');
                 foreach ($inactiveMembers as $m) {
                     Saver::firstOrCreate(
                         ['student_id' => $m->student_id],
                         [
                             'student_name' => $m->name,
                             'grade_class'  => $m->grade_class ?: ($m->graduation_year ? ('Angkatan ' . $m->graduation_year) : '-'),
-                            'security_pin' => $m->security_pin ?? Hash::make('123456'),
-                            'password'     => Hash::make('123456'),
+                            'security_pin' => $m->security_pin ?? $defaultHash,
+                            'password'     => $defaultHash,
                             'status'       => 'inactive',
                             'saldo'        => 0,
                         ]
                     );
                 }
-                $members = Saver::whereIn('status', ['inactive', 'Belum Aktif', 'Nonaktif', 'pending'])
-                    ->orderBy('student_id', 'asc')
-                    ->get();
             }
         }
 
-        // 5. Distinct classes for filter dropdown
-        $classes = Saver::whereIn('status', ['inactive', 'Belum Aktif', 'pending'])
+        // Base query: calon nasabah belum aktif (kecuali siswa yang sudah lulus / alumni)
+        $baseQuery = Saver::whereIn('status', ['inactive', 'Belum Aktif', 'Nonaktif', 'pending'])
+            ->where(function ($q) {
+                $q->whereNull('grade_class')
+                  ->orWhere('grade_class', 'not like', 'Lulus%');
+            });
+
+        $totalWaitingCount = (clone $baseQuery)->count();
+
+        // Daftar kelas unik yang terurut rapi
+        $classes = (clone $baseQuery)
             ->whereNotNull('grade_class')
             ->where('grade_class', '!=', '')
             ->distinct()
             ->pluck('grade_class')
-            ->sort()
+            ->sort(function ($a, $b) {
+                return strnatcasecmp($a, $b);
+            })
             ->values();
 
-        return view('teller.activations.index', compact('members', 'classes'));
+        $query = clone $baseQuery;
+        $currentClass = null;
+        $prevClass = null;
+        $nextClass = null;
+        $currentClassIndex = 0;
+        $totalClasses = $classes->count();
+
+        // Jika sedang mencari nama/NIS, tampilkan hasil pencarian lintas kelas (atau sesuai filter kelas)
+        if ($request->filled('search')) {
+            $searchTerm = trim($request->search);
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('student_name', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('student_id', 'like', '%' . $searchTerm . '%');
+            });
+            if ($request->filled('class')) {
+                $currentClass = trim($request->class);
+                $query->where('grade_class', $currentClass);
+            }
+        } else {
+            // Mode Tampilan Per Kelas (1 tabel = 1 kelas dengan tombol Kelas Sebelumnya & Selanjutnya)
+            if ($classes->isNotEmpty()) {
+                $requestedClass = $request->query('class');
+                if ($requestedClass && $classes->contains($requestedClass)) {
+                    $currentClass = $requestedClass;
+                } else {
+                    $currentClass = $classes->first();
+                }
+
+                $idx = $classes->search($currentClass);
+                if ($idx !== false) {
+                    $currentClassIndex = $idx + 1;
+                    $prevClass = $idx > 0 ? $classes->get($idx - 1) : null;
+                    $nextClass = $idx < ($totalClasses - 1) ? $classes->get($idx + 1) : null;
+                }
+
+                $query->where('grade_class', $currentClass);
+            }
+        }
+
+        $members = $query->orderBy('student_id', 'asc')->get();
+
+        return view('teller.activations.index', compact(
+            'members',
+            'classes',
+            'currentClass',
+            'prevClass',
+            'nextClass',
+            'currentClassIndex',
+            'totalClasses',
+            'totalWaitingCount'
+        ));
     }
 
     /**
@@ -111,42 +149,84 @@ class TellerActivationController extends Controller
 
         // Check if an existing User already exists for this student
         $existingUser = null;
-        if ($member && $member->user_id) {
+        if ($saver && !empty($saver->user_id)) {
+            $existingUser = User::find($saver->user_id);
+        }
+        if (!$existingUser && $member && $member->user_id) {
             $existingUser = User::find($member->user_id);
         }
         if (!$existingUser) {
             $existingUser = User::where('username', 'siswa_' . $studentId)->first();
         }
 
+        // Normalize input fields
+        $request->merge([
+            'username'        => trim((string) $request->input('username')),
+            'email'           => strtolower(trim((string) $request->input('email'))),
+            'whatsapp_number' => preg_replace('/\s+/', '', trim((string) $request->input('whatsapp_number'))),
+        ]);
+
+        $usernameRules = [
+            'required',
+            'string',
+            'max:255',
+            Rule::unique('users', 'username')->ignore($existingUser?->id),
+        ];
+        if (Schema::hasColumn('savers', 'username')) {
+            $usernameRules[] = Rule::unique('savers', 'username')->ignore($saver?->id);
+        }
+
+        $emailRules = [
+            'required',
+            'string',
+            'email',
+            'max:255',
+            Rule::unique('users', 'email')->ignore($existingUser?->id),
+        ];
+        if (Schema::hasColumn('savers', 'email')) {
+            $emailRules[] = Rule::unique('savers', 'email')->ignore($saver?->id);
+        }
+
+        $waRules = [
+            'required',
+            'string',
+            'min:9',
+            'max:20',
+            Rule::unique('users', 'whatsapp_number')->ignore($existingUser?->id),
+        ];
+        if (Schema::hasColumn('savers', 'whatsapp_number')) {
+            $waRules[] = Rule::unique('savers', 'whatsapp_number')->ignore($saver?->id);
+        }
+
         // 2. Strict Validation with custom error messages
-        $validated = $request->validate([
-            'username'        => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('users', 'username')->ignore($existingUser?->id),
-            ],
-            'email'           => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->ignore($existingUser?->id),
-            ],
-            'whatsapp_number' => ['required', 'string', 'max:20'],
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'username'        => $usernameRules,
+            'email'           => $emailRules,
+            'whatsapp_number' => $waRules,
             'amount'          => ['required', 'numeric', 'min:10000'],
             'active_modal_id' => ['nullable'],
         ], [
             'username.required'        => 'Username wajib diisi.',
-            'username.unique'          => 'Username sudah digunakan oleh akun lain.',
+            'username.unique'          => 'Username "' . $request->input('username') . '" sudah digunakan oleh akun lain. Silakan ubah dengan username yang berbeda!',
             'email.required'           => 'Alamat email wajib diisi.',
             'email.email'              => 'Format alamat email tidak valid.',
-            'email.unique'             => 'Alamat email sudah terdaftar di sistem.',
+            'email.unique'             => 'Alamat email "' . $request->input('email') . '" sudah terdaftar pada akun lain. Silakan gunakan alamat email yang berbeda!',
             'whatsapp_number.required' => 'Nomor WhatsApp wajib diisi.',
+            'whatsapp_number.min'      => 'Nomor WhatsApp tidak valid (minimal 9 digit).',
+            'whatsapp_number.unique'   => 'Nomor WhatsApp "' . $request->input('whatsapp_number') . '" sudah digunakan oleh nasabah/akun lain. Wajib menggunakan nomor WhatsApp yang berbeda!',
             'amount.required'          => 'Nominal setoran awal wajib diisi.',
             'amount.numeric'           => 'Nominal setoran awal harus berupa angka.',
             'amount.min'               => 'Setoran awal minimal adalah Rp 10.000.',
         ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Aktivasi Gagal: ' . $validator->errors()->first());
+        }
+
+        $validated = $validator->validated();
 
         $initialAmount = (float) $validated['amount'];
         $tellerUserId  = auth()->id() ?? User::where('role', 'Teller')->value('id') ?? 1;
@@ -209,6 +289,15 @@ class TellerActivationController extends Controller
                     if (Schema::hasColumn('savers', 'user_id')) {
                         $saver->user_id = $user->id;
                     }
+                    if (Schema::hasColumn('savers', 'username')) {
+                        $saver->username = $validated['username'];
+                    }
+                    if (Schema::hasColumn('savers', 'email')) {
+                        $saver->email = $validated['email'];
+                    }
+                    if (Schema::hasColumn('savers', 'whatsapp_number')) {
+                        $saver->whatsapp_number = $validated['whatsapp_number'];
+                    }
                     $saver->save();
                 } else {
                     $saverData = [
@@ -223,6 +312,15 @@ class TellerActivationController extends Controller
                     ];
                     if (Schema::hasColumn('savers', 'user_id')) {
                         $saverData['user_id'] = $user->id;
+                    }
+                    if (Schema::hasColumn('savers', 'username')) {
+                        $saverData['username'] = $validated['username'];
+                    }
+                    if (Schema::hasColumn('savers', 'email')) {
+                        $saverData['email'] = $validated['email'];
+                    }
+                    if (Schema::hasColumn('savers', 'whatsapp_number')) {
+                        $saverData['whatsapp_number'] = $validated['whatsapp_number'];
                     }
                     $saver = Saver::create($saverData);
                 }

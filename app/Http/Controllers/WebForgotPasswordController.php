@@ -34,6 +34,7 @@ class WebForgotPasswordController extends Controller
 
         if (!$user) {
             return back()
+                ->with('error', 'Gagal mengirim OTP: Email tidak terdaftar di sistem.')
                 ->withErrors(['email' => 'Email tidak terdaftar di sistem.'])
                 ->withInput();
         }
@@ -104,6 +105,7 @@ class WebForgotPasswordController extends Controller
         $expiresAt = session('reset_otp_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
             return back()
+                ->with('error', 'Verifikasi Gagal: Kode OTP telah kedaluwarsa (batas waktu 2 menit telah berakhir). Silakan minta kode OTP baru.')
                 ->withErrors(['otp' => 'Kode OTP telah kedaluwarsa (batas waktu 2 menit telah berakhir). Silakan minta kode OTP baru.'])
                 ->withInput();
         }
@@ -112,6 +114,7 @@ class WebForgotPasswordController extends Controller
 
         if (!$storedOtp || $storedOtp !== $request->otp) {
             return back()
+                ->with('error', 'Verifikasi Gagal: Kode OTP yang Anda masukkan salah atau tidak cocok! Silakan periksa kembali kode 6 digit di email Anda.')
                 ->withErrors(['otp' => 'Kode OTP salah atau tidak cocok.'])
                 ->withInput();
         }

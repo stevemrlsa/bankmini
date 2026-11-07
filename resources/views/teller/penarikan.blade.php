@@ -268,13 +268,16 @@
         color: #fff;
     }
 
-    /* ===== QR Scanner Modal Styles ===== */
+    /* ===== QR Scanner Modal Styles (Centered & Symmetrical) ===== */
     .scanner-viewport-box {
         position: relative;
         background: #090D16;
         border-radius: 20px;
         overflow: hidden;
-        min-height: 280px;
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -282,12 +285,29 @@
 
     #qr-scanner-viewport {
         width: 100% !important;
+        height: 100% !important;
         border: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative;
     }
 
     #qr-scanner-viewport video {
-        border-radius: 16px;
-        object-fit: cover;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 18px !important;
+        object-fit: cover !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+
+    #qr-scanner-viewport__scan_region {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     .scanner-laser-line {
@@ -314,10 +334,21 @@
     <div class="form-stage">
         <div class="transaction-card">
 
-            <div class="transaction-icon-badge">
-                <i class="bi bi-arrow-up-circle-fill"></i>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="transaction-icon-badge mb-0">
+                    <i class="bi bi-arrow-up-circle-fill"></i>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted" style="font-size: 0.74rem;">Uang Kas Fisik di Laci:</div>
+                    <div class="fw-bold {{ ($uangFisikDiLaci ?? 0) <= 50000 ? 'text-danger' : 'text-success' }}" style="font-size: 0.95rem;">
+                        Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2 py-0 mt-1 fw-semibold" style="font-size: 0.72rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Tambah Kas Laci
+                    </button>
+                </div>
             </div>
-            <h2>Penarikan Tunai</h2>
+            <h2 class="mt-3">Penarikan Tunai</h2>
             <p class="desc">Scan QR Code nasabah dan verifikasi PIN sebelum penyerahan uang.</p>
 
             @if(session('success'))
@@ -660,6 +691,56 @@
         </div>
     </div>
     @endif
+
+    <!-- Modal Tambah Uang Kas Laci (Top-Up Kas Shift) -->
+    <div class="modal fade" id="modalTopUpKas" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.22); overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 48px; height: 48px; border-radius: 14px; background: #ECFDF5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark m-0">Tambah Uang Kas Laci</h5>
+                            <p class="text-muted small mb-0">Masukkan nominal uang tunai tambahan yang diambil ke dalam laci</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <form action="{{ route('teller.shift.topup') }}" method="POST">
+                    @csrf
+                    <div class="modal-body px-4 py-3">
+                        <div class="p-3 rounded-3 mb-3 border" style="background: #F8FAFC;">
+                            <div class="d-flex justify-content-between align-items-center small">
+                                <span class="text-muted">Sisa Uang Fisik di Laci Saat Ini:</span>
+                                <span class="fw-bold text-success fs-6">Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-dark">Nominal Tambahan Uang Kas (Rp) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold text-dark">Rp</span>
+                                <input type="text" name="amount" class="form-control rupiah-input fw-bold fs-5 text-success" placeholder="Contoh: 500.000" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small text-dark">Keterangan (Opsional)</label>
+                            <input type="text" name="notes" class="form-control" placeholder="Contoh: Tambahan kas penarikan dari brankas">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4 pt-1 gap-2">
+                        <button type="button" class="btn btn-light rounded-pill px-4 flex-fill" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4 flex-fill fw-bold" style="background: linear-gradient(135deg, #059669, #10B981); border: none;">
+                            <i class="bi bi-check-circle-fill me-1"></i> Simpan Tambahan Kas
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
 @endsection
 

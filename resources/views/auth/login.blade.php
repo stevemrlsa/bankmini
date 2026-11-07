@@ -427,8 +427,8 @@
             <div class="brand-logo-wrap">
                 <img src="{{ asset('images/logo-smkn1bantul.png') }}" alt="Logo SMKN 1 Bantul" class="brand-logo">
             </div>
-            <h2 class="welcome-title">Welcome back</h2>
-            <p class="welcome-subtitle">Selamat Datang di sistem bank mini smkn 1 bantul</p>
+            <h2 class="welcome-title">Selamat Datang</h2>
+            <p class="welcome-subtitle">Sistem Layanan Perbankan Internal SMK Negeri 1 Bantul</p>
         </div>
 
         <!-- ===== Panel Kanan: Form Login ===== -->
@@ -445,6 +445,13 @@
                     <span>Akses web khusus <strong>Admin & Teller</strong>. Nasabah dianjurkan menggunakan <strong>Aplikasi Mobile (APK)</strong>.</span>
                 </div>
 
+                @if (request('expired'))
+                    <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #FDE68A; background-color: #FFFBEB; color: #92400E;">
+                        <i class="bi bi-clock-history fs-6 flex-shrink-0"></i>
+                        <span>Sesi login Anda telah berakhir karena tidak ada aktivitas. Silakan masuk kembali.</span>
+                    </div>
+                @endif
+
                 @if ($errors->any())
                     <div class="alert alert-danger py-2 px-3 mb-3" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
                         <ul class="mb-0" style="padding-left: 1rem;">
@@ -456,14 +463,23 @@
                 @endif
 
                 @if (session('error'))
-                    <div class="alert alert-danger py-2 px-3 mb-3" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
-                        {{ session('error') }}
+                    <div class="alert alert-danger py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
+                        <i class="bi bi-exclamation-triangle-fill fs-6 flex-shrink-0"></i>
+                        <span>{{ session('error') }}</span>
+                    </div>
+                @endif
+
+                @if (session('success'))
+                    <div class="alert py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #BBF7D0; background-color: #DCFCE7; color: #166534;">
+                        <i class="bi bi-check-circle-fill fs-6 flex-shrink-0"></i>
+                        <span>{{ session('success') }}</span>
                     </div>
                 @endif
 
                 @if (session('status'))
-                    <div class="alert py-2 px-3 mb-3" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #BBF7D0; background-color: #DCFCE7; color: #166534;">
-                        <i class="bi bi-check-circle-fill me-1"></i> {{ session('status') }}
+                    <div class="alert py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius: 10px; font-size: 0.8rem; border: 1px solid #BBF7D0; background-color: #DCFCE7; color: #166534;">
+                        <i class="bi bi-check-circle-fill fs-6 flex-shrink-0"></i>
+                        <span>{{ session('status') }}</span>
                     </div>
                 @endif
 

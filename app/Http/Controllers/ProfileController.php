@@ -40,6 +40,7 @@ class ProfileController extends Controller
             'profile_pw_otp'            => $otp,
             'profile_pw_otp_expires_at' => now()->addMinutes(2)->timestamp,
             'profile_pw_otp_sent'       => true,
+            'profile_pw_otp_verified'   => false,
         ]);
 
         $officerName = $user->officer_name ?? $user->username;
@@ -60,41 +61,96 @@ class ProfileController extends Controller
             if (config('app.debug')) {
                 session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP: {$otp}");
             } else {
-                return back()->with('error', 'Gagal mengirim email OTP: ' . $e->getMessage());
+                return back()->with('active_tab', 'password')->with('error', 'Gagal mengirim email OTP: ' . $e->getMessage());
             }
         }
 
-        return back()->with('success', $emailSent 
-            ? 'Kode OTP telah dikirimkan ke email Anda (' . $user->email . '). Berlaku selama 2 menit.' 
-            : 'Kode OTP keamanan telah dibuat untuk sesi ini.');
+        return back()->with('active_tab', 'password')->with('success', $emailSent 
+            ? 'Berhasil! Kode OTP 6-digit telah dikirimkan ke email Anda (' . $user->email . '). Silakan masukkan kode OTP tersebut.' 
+            : 'Kode OTP keamanan telah dibuat untuk sesi ini. Silakan masukkan kode OTP.');
     }
 
     /**
-     * Eksekusi pembaruan kata sandi dengan verifikasi kode OTP (Batas waktu 2 menit)
+     * Langkah 2: Verifikasi kode OTP untuk Ganti Kata Sandi sebelum masuk ke form Password Baru
      */
-    public function updatePassword(Request $request)
+    public function verifyPasswordOtp(Request $request)
     {
         $request->validate([
-            'otp'      => 'required|digits:6',
-            'password' => 'required|string|min:6|confirmed',
+            'otp' => 'required|digits:6',
         ], [
-            'otp.required'       => 'Kode OTP wajib diisi.',
-            'otp.digits'         => 'Kode OTP harus berjumlah 6 digit angka.',
-            'password.required'  => 'Kata sandi baru wajib diisi.',
-            'password.min'       => 'Kata sandi baru minimal 6 karakter.',
-            'password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
+            'otp.required' => 'Kode OTP wajib diisi.',
+            'otp.digits'   => 'Kode OTP harus berjumlah 6 digit angka.',
         ]);
+
+        // Cek apakah pernah meminta OTP
+        if (!session('profile_pw_otp_sent')) {
+            return back()->with('active_tab', 'password')->with('error', 'Sesi OTP tidak ditemukan. Silakan minta kode OTP terlebih dahulu.');
+        }
 
         // Cek kedaluwarsa waktu 2 menit
         $expiresAt = session('profile_pw_otp_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
-            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+            return back()->withInput()->with('active_tab', 'password')->with('error', 'Verifikasi Gagal: Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
         }
 
         // Cek kesesuaian OTP
         $storedOtp = session('profile_pw_otp');
-        if (!$storedOtp || $storedOtp !== $request->otp) {
-            return back()->withInput()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
+        if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
+            return back()->withInput()->with('active_tab', 'password')->with('error', 'Verifikasi Gagal: Kode OTP yang Anda masukkan salah atau tidak sesuai! Silakan periksa kembali.');
+        }
+
+        // Tandai OTP sudah terverifikasi agar beralih ke Langkah 3 (Input Sandi Baru)
+        session(['profile_pw_otp_verified' => true]);
+
+        return back()->with('active_tab', 'password')->with('success', 'Verifikasi OTP Berhasil! Sekarang silakan buat kata sandi baru Anda.');
+    }
+
+    /**
+     * Batalkan / Reset alur OTP Ganti Kata Sandi
+     */
+    public function cancelPasswordOtp()
+    {
+        session()->forget([
+            'profile_pw_otp',
+            'profile_pw_otp_expires_at',
+            'profile_pw_otp_sent',
+            'profile_pw_otp_verified',
+        ]);
+
+        return back()->with('active_tab', 'password')->with('success', 'Alur perubahan kata sandi telah direset.');
+    }
+
+    /**
+     * Langkah 3: Eksekusi pembaruan kata sandi setelah OTP terverifikasi
+     */
+    public function updatePassword(Request $request)
+    {
+        // Jika belum terverifikasi di langkah 2 tetapi mengirim otp langsung (fallback)
+        if (!session('profile_pw_otp_verified')) {
+            if ($request->filled('otp')) {
+                $expiresAt = session('profile_pw_otp_expires_at');
+                if (!$expiresAt || now()->timestamp > $expiresAt) {
+                    return back()->withInput()->with('active_tab', 'password')->with('error', 'Gagal: Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+                }
+                $storedOtp = session('profile_pw_otp');
+                if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
+                    return back()->withInput()->with('active_tab', 'password')->with('error', 'Gagal: Kode OTP yang Anda masukkan salah atau tidak cocok.');
+                }
+            } else {
+                return back()->with('active_tab', 'password')->with('error', 'Anda wajib memverifikasi kode OTP terlebih dahulu sebelum membuat kata sandi baru.');
+            }
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'password' => 'required|string|min:6|confirmed',
+        ], [
+            'password.required'  => 'Kata sandi baru wajib diisi.',
+            'password.min'       => 'Kata sandi baru minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput()->with('active_tab', 'password')->with('error', 'Gagal menyimpan kata sandi: ' . $validator->errors()->first());
         }
 
         // Update password user
@@ -108,9 +164,10 @@ class ProfileController extends Controller
             'profile_pw_otp',
             'profile_pw_otp_expires_at',
             'profile_pw_otp_sent',
+            'profile_pw_otp_verified',
         ]);
 
-        return back()->with('success', 'Kata sandi berhasil diperbarui dengan aman!');
+        return back()->with('active_tab', 'password')->with('success', 'Berhasil! Kata sandi akun Anda telah diperbarui dengan aman.');
     }
 
     /**
@@ -120,7 +177,7 @@ class ProfileController extends Controller
     {
         $user = auth()->user();
 
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'new_email'        => 'required|email|unique:users,email,' . $user->id,
             'current_password' => 'required|string',
         ], [
@@ -130,9 +187,13 @@ class ProfileController extends Controller
             'current_password.required' => 'Kata sandi saat ini wajib diisi untuk verifikasi keamanan.',
         ]);
 
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput()->with('active_tab', 'email')->with('error', 'Gagal memproses: ' . $validator->errors()->first());
+        }
+
         // 1. Verifikasi kecocokan password saat ini
         if (!Hash::check($request->current_password, $user->password)) {
-            return back()->withInput()->with('error', 'Kata sandi saat ini yang Anda masukkan salah.');
+            return back()->withInput()->with('active_tab', 'email')->with('error', 'Verifikasi Gagal: Kata sandi saat ini yang Anda masukkan salah.');
         }
 
         // 2. Generate 6 digit OTP
@@ -164,12 +225,12 @@ class ProfileController extends Controller
             if (config('app.debug')) {
                 session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP verifikasi email: {$otp}");
             } else {
-                return back()->withInput()->with('error', 'Gagal mengirim email OTP ke email baru: ' . $e->getMessage());
+                return back()->withInput()->with('active_tab', 'email')->with('error', 'Gagal mengirim email OTP ke email baru: ' . $e->getMessage());
             }
         }
 
-        return back()->with('success', $emailSent 
-            ? 'Kode OTP verifikasi telah dikirimkan ke email baru Anda (' . $request->new_email . '). Berlaku selama 2 menit.' 
+        return back()->with('active_tab', 'email')->with('success', $emailSent 
+            ? 'Berhasil! Kode OTP verifikasi telah dikirimkan ke email baru Anda (' . $request->new_email . '). Berlaku selama 2 menit.' 
             : 'Kode OTP verifikasi email baru telah dibuat untuk sesi ini.');
     }
 
@@ -178,28 +239,32 @@ class ProfileController extends Controller
      */
     public function verifyAndChangeEmail(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'otp' => 'required|digits:6',
         ], [
             'otp.required' => 'Kode OTP verifikasi email wajib diisi.',
             'otp.digits'   => 'Kode OTP harus berjumlah 6 digit angka.',
         ]);
 
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput()->with('active_tab', 'email')->with('error', $validator->errors()->first());
+        }
+
         $newEmail = session('change_email_new');
         if (!$newEmail) {
-            return back()->with('error', 'Sesi perubahan email telah berakhir. Silakan masukkan email baru kembali.');
+            return back()->with('active_tab', 'email')->with('error', 'Sesi perubahan email telah berakhir. Silakan masukkan email baru kembali.');
         }
 
         // Cek batas waktu 2 menit
         $expiresAt = session('change_email_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
-            return back()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+            return back()->with('active_tab', 'email')->with('error', 'Verifikasi Gagal: Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
         }
 
         // Cek kesesuaian OTP
         $storedOtp = session('change_email_otp');
-        if (!$storedOtp || $storedOtp !== $request->otp) {
-            return back()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
+        if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
+            return back()->with('active_tab', 'email')->with('error', 'Verifikasi Gagal: Kode OTP yang Anda masukkan salah atau tidak cocok!');
         }
 
         // Update email akun
@@ -225,7 +290,22 @@ class ProfileController extends Controller
             'change_email_otp_sent',
         ]);
 
-        return back()->with('success', 'Alamat email akun Anda berhasil diperbarui menjadi: ' . $newEmail);
+        return back()->with('active_tab', 'email')->with('success', 'Berhasil! Alamat email akun Anda telah diperbarui menjadi: ' . $newEmail);
+    }
+
+    /**
+     * Batalkan proses ganti email
+     */
+    public function cancelEmailOtp()
+    {
+        session()->forget([
+            'change_email_new',
+            'change_email_otp',
+            'change_email_expires_at',
+            'change_email_otp_sent',
+        ]);
+
+        return back()->with('active_tab', 'email')->with('success', 'Alur perubahan email telah dibatalkan.');
     }
 }
 

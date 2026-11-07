@@ -60,6 +60,49 @@ class TellerShiftController extends Controller
     }
 
     /**
+     * Tambah uang kas ke laci saat shift sedang aktif (ketika uang kas laci menipis / habis).
+     */
+    public function topUp(Request $request)
+    {
+        $rawAmount = str_replace('.', '', (string) $request->input('amount', ''));
+        $request->merge(['amount' => $rawAmount]);
+
+        $request->validate([
+            'amount' => 'required|numeric|min:1000',
+            'notes'  => 'nullable|string|max:255',
+        ], [
+            'amount.required' => 'Nominal penambahan kas laci wajib diisi.',
+            'amount.numeric'  => 'Nominal penambahan kas harus berupa angka.',
+            'amount.min'      => 'Nominal penambahan kas minimal Rp 1.000.',
+        ]);
+
+        $activeShift = TellerShift::where('user_id', auth()->id())
+            ->where('status', 'Open')
+            ->first();
+
+        if (!$activeShift) {
+            return redirect()->route('teller.shift.create')
+                ->with('error', 'Tidak ada shift kasir yang sedang aktif. Silakan buka laci terlebih dahulu.');
+        }
+
+        $addedAmount = (float) $request->amount;
+        $activeShift->opening_balance = (float) $activeShift->opening_balance + $addedAmount;
+
+        $noteAppend = 'Top-Up Kas Laci: +Rp ' . number_format($addedAmount, 0, ',', '.') . ' (' . now()->format('H:i') . ')';
+        if ($request->filled('notes')) {
+            $noteAppend .= ' - ' . $request->notes;
+        }
+        $activeShift->notes = $activeShift->notes
+            ? ($activeShift->notes . ' | ' . $noteAppend)
+            : $noteAppend;
+
+        $activeShift->save();
+
+        return redirect()->back()
+            ->with('success', 'Berhasil menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . '! Total modal kas laci telah diperbarui.');
+    }
+
+    /**
      * Tampilkan halaman konfirmasi dan input kas fisik penutupan shift (Close Drawer).
      */
     public function close()

@@ -268,13 +268,16 @@
         color: #fff;
     }
 
-    /* ===== QR Scanner Modal Styles ===== */
+    /* ===== QR Scanner Modal Styles (Centered & Symmetrical) ===== */
     .scanner-viewport-box {
         position: relative;
         background: #090D16;
         border-radius: 20px;
         overflow: hidden;
-        min-height: 280px;
+        width: 100%;
+        max-width: 360px;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -282,12 +285,29 @@
 
     #qr-scanner-viewport {
         width: 100% !important;
+        height: 100% !important;
         border: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative;
     }
 
     #qr-scanner-viewport video {
-        border-radius: 16px;
-        object-fit: cover;
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 18px !important;
+        object-fit: cover !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+
+    #qr-scanner-viewport__scan_region {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     .scanner-laser-line {

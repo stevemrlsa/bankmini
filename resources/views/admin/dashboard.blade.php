@@ -66,7 +66,14 @@
         color: rgba(255, 255, 255, 0.75);
     }
 
-    /* ===== Stat Cards ===== */
+    /* ===== Stat Cards (Clickable) ===== */
+    .stat-card-link {
+        text-decoration: none;
+        display: block;
+        height: 100%;
+        color: inherit;
+    }
+
     .stat-card {
         background: #FFFFFF;
         border: 1px solid #EEF2F6;
@@ -74,12 +81,14 @@
         padding: 22px 24px;
         box-shadow: 0 4px 18px rgba(12, 96, 240, 0.04);
         height: 100%;
-        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        cursor: pointer;
     }
 
     .stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 28px rgba(12, 96, 240, 0.1);
+        transform: translateY(-4px);
+        box-shadow: 0 14px 30px rgba(12, 96, 240, 0.12);
+        border-color: rgba(22, 35, 63, 0.18);
     }
 
     .stat-card .stat-top {
@@ -225,50 +234,70 @@
         </div>
     </div>
 
-    <!-- Stat Cards -->
+    <!-- Stat Cards (Clickable & Real-Time) -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <div class="stat-icon bg-navy"><i class="bi bi-person-badge-fill"></i></div>
-                    <span class="stat-trend up"><i class="bi bi-arrow-up-short"></i></span>
+            <a href="{{ route('admin.users.index') }}" class="stat-card-link" title="Klik untuk membuka Manajemen Pegawai">
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <div class="stat-icon bg-navy"><i class="bi bi-person-badge-fill"></i></div>
+                        <span class="stat-trend up"><i class="bi bi-arrow-up-right"></i></span>
+                    </div>
+                    <div class="stat-value" id="cardTotalPegawai">{{ number_format($totalPegawai ?? 0) }}</div>
+                    <div class="stat-label d-flex justify-content-between align-items-center">
+                        <span>Total Pegawai</span>
+                        <small class="text-primary fw-semibold" style="font-size: 0.7rem;">Kelola &rarr;</small>
+                    </div>
                 </div>
-                <div class="stat-value">{{ number_format($totalPegawai ?? 0) }}</div>
-                <div class="stat-label">Total Pegawai</div>
-            </div>
+            </a>
         </div>
 
         <div class="col-6 col-lg-3">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <div class="stat-icon bg-teal"><i class="bi bi-people-fill"></i></div>
-                    <span class="stat-trend up"><i class="bi bi-arrow-up-short"></i></span>
+            <a href="{{ route('admin.savers.index') }}" class="stat-card-link" title="Klik untuk membuka Data Nasabah Aktif">
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <div class="stat-icon bg-teal"><i class="bi bi-people-fill"></i></div>
+                        <span class="stat-trend up"><i class="bi bi-arrow-up-right"></i></span>
+                    </div>
+                    <div class="stat-value" id="cardTotalNasabahAktif">{{ number_format($totalNasabahAktif ?? 0) }}</div>
+                    <div class="stat-label d-flex justify-content-between align-items-center">
+                        <span>Nasabah Aktif <small class="text-muted fw-normal" style="font-size: 0.72rem;">(<span id="cardTotalNasabah">{{ number_format($totalNasabah ?? 0) }}</span> total)</small></span>
+                        <small class="text-primary fw-semibold" style="font-size: 0.7rem;">Lihat &rarr;</small>
+                    </div>
                 </div>
-                <div class="stat-value">{{ number_format($totalNasabahAktif ?? 0) }}</div>
-                <div class="stat-label">Nasabah Aktif <small class="text-muted fw-normal" style="font-size: 0.72rem;">({{ number_format($totalNasabah ?? 0) }} total)</small></div>
-            </div>
+            </a>
         </div>
 
         <div class="col-6 col-lg-3">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <div class="stat-icon bg-amber"><i class="bi bi-wallet2"></i></div>
-                    <span class="stat-trend up"><i class="bi bi-arrow-up-short"></i></span>
+            <a href="{{ route('admin.balance.summary') }}" class="stat-card-link" title="Klik untuk melihat Rincian Saldo Tersimpan per Kelas">
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <div class="stat-icon bg-amber"><i class="bi bi-wallet2"></i></div>
+                        <span class="stat-trend up"><i class="bi bi-arrow-up-right"></i></span>
+                    </div>
+                    <div class="stat-value" id="cardTotalSaldo">Rp {{ number_format($totalSaldo ?? 0, 0, ',', '.') }}</div>
+                    <div class="stat-label d-flex justify-content-between align-items-center">
+                        <span>Total Saldo Tersimpan</span>
+                        <small class="text-primary fw-semibold" style="font-size: 0.7rem;">Rincian &rarr;</small>
+                    </div>
                 </div>
-                <div class="stat-value">Rp {{ number_format($totalSaldo ?? 0, 0, ',', '.') }}</div>
-                <div class="stat-label">Total Saldo Tersimpan</div>
-            </div>
+            </a>
         </div>
 
         <div class="col-6 col-lg-3">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <div class="stat-icon bg-plum"><i class="bi bi-arrow-left-right"></i></div>
-                    <span class="stat-trend up"><i class="bi bi-arrow-up-short"></i></span>
+            <a href="{{ route('admin.transactions.index') }}" class="stat-card-link" title="Klik untuk melihat Seluruh Riwayat Transaksi">
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <div class="stat-icon bg-plum"><i class="bi bi-arrow-left-right"></i></div>
+                        <span class="stat-trend up"><i class="bi bi-arrow-up-right"></i></span>
+                    </div>
+                    <div class="stat-value" id="cardTransaksiHariIni">{{ number_format($transaksiHariIni ?? 0) }}</div>
+                    <div class="stat-label d-flex justify-content-between align-items-center">
+                        <span>Transaksi Hari Ini</span>
+                        <small class="text-primary fw-semibold" style="font-size: 0.7rem;">Semua &rarr;</small>
+                    </div>
                 </div>
-                <div class="stat-value">{{ number_format($transaksiHariIni ?? 0) }}</div>
-                <div class="stat-label">Transaksi Hari Ini</div>
-            </div>
+            </a>
         </div>
     </div>
 
@@ -279,11 +308,14 @@
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <div>
                         <p class="panel-title">Transaksi Terbaru</p>
-                        <p class="panel-subtitle">5 transaksi terakhir di seluruh loket</p>
+                        <p class="panel-subtitle">5 transaksi terakhir di seluruh loket (terupdate otomatis)</p>
                     </div>
+                    <a href="{{ route('admin.transactions.index') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" style="font-size: 0.78rem;">
+                        Lihat Semua Transaksi <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
                 </div>
 
-                <div class="activity-list">
+                <div class="activity-list" id="latestTransactionsList">
                     @forelse($latestTransactions as $transaction)
                         @php
                             $isDeposit = in_array(strtolower($transaction->transaction_type), ['deposit', 'setor', 'setoran']);
@@ -315,21 +347,79 @@
 
         <div class="col-lg-4">
             <div class="card-solid p-4">
-                <p class="panel-title mb-1">Distribusi Pegawai</p>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <p class="panel-title mb-0">Distribusi Pegawai</p>
+                    <a href="{{ route('admin.users.index') }}" class="small text-decoration-none fw-semibold">Kelola</a>
+                </div>
                 <p class="panel-subtitle mb-3">Berdasarkan role sistem</p>
 
                 <div class="quick-role">
                     <span class="role-dot" style="background:#16233F;"></span>
                     Administrator
-                    <span class="count">{{ number_format($countAdmin ?? 0) }}</span>
+                    <span class="count" id="cardCountAdmin">{{ number_format($countAdmin ?? 0) }}</span>
                 </div>
                 <div class="quick-role">
                     <span class="role-dot" style="background:#14B8A6;"></span>
                     Teller
-                    <span class="count">{{ number_format($countTeller ?? 0) }}</span>
+                    <span class="count" id="cardCountTeller">{{ number_format($countTeller ?? 0) }}</span>
                 </div>
             </div>
         </div>
     </div>
 
 @endsection
+
+@push('scripts')
+<script>
+    // Pembaruan Data Statistik & Transaksi secara Real-Time setiap 10 detik
+    document.addEventListener('DOMContentLoaded', function() {
+        setInterval(function() {
+            fetch("{{ route('admin.dashboard.stats') }}", {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(function(res) { return res.ok ? res.json() : null; })
+            .then(function(data) {
+                if (!data) return;
+                var elPegawai = document.getElementById('cardTotalPegawai');
+                var elAktif   = document.getElementById('cardTotalNasabahAktif');
+                var elTotal   = document.getElementById('cardTotalNasabah');
+                var elSaldo   = document.getElementById('cardTotalSaldo');
+                var elTrx     = document.getElementById('cardTransaksiHariIni');
+                var elAdmin   = document.getElementById('cardCountAdmin');
+                var elTeller  = document.getElementById('cardCountTeller');
+
+                if (elPegawai) elPegawai.textContent = data.totalPegawai;
+                if (elAktif)   elAktif.textContent   = data.totalNasabahAktif;
+                if (elTotal)   elTotal.textContent   = data.totalNasabah;
+                if (elSaldo)   elSaldo.textContent   = data.totalSaldo;
+                if (elTrx)     elTrx.textContent     = data.transaksiHariIni;
+                if (elAdmin)   elAdmin.textContent   = data.countAdmin;
+                if (elTeller)  elTeller.textContent  = data.countTeller;
+
+                if (Array.isArray(data.latestTransactions)) {
+                    var listEl = document.getElementById('latestTransactionsList');
+                    if (listEl && data.latestTransactions.length > 0) {
+                        listEl.innerHTML = data.latestTransactions.map(function(tx) {
+                            var iconClass = tx.is_deposit ? 'in' : 'out';
+                            var iconBi    = tx.is_deposit ? 'bi-arrow-down-left' : 'bi-arrow-up-right';
+                            var amtClass  = tx.is_deposit ? 'in text-success' : 'out text-danger';
+                            return '<div class="activity-item">' +
+                                '<div class="activity-icon ' + iconClass + '"><i class="bi ' + iconBi + '"></i></div>' +
+                                '<div class="activity-text">' +
+                                    '<strong>' + tx.student_name + ' — ' + tx.grade_class + '</strong>' +
+                                    '<span>' + tx.type_label + ' · ' + tx.time + '</span>' +
+                                '</div>' +
+                                '<div class="activity-amount ' + amtClass + '">' + tx.amount_fmt + '</div>' +
+                            '</div>';
+                        }).join('');
+                    }
+                }
+            })
+            .catch(function() {});
+        }, 10000);
+    });
+</script>
+@endpush

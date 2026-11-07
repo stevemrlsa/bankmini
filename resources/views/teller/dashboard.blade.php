@@ -424,6 +424,39 @@
     .nominal-chip:active {
         transform: scale(0.96);
     }
+
+    /* ===== QR Reader Centering & Symmetry ===== */
+    #qr-reader {
+        width: 100% !important;
+        max-width: 360px !important;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto !important;
+        border-radius: 20px !important;
+        overflow: hidden !important;
+        border: 2px solid #E2E8F0 !important;
+        background: #090D16;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    #qr-reader video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        display: block !important;
+        margin: 0 auto !important;
+        border-radius: 18px !important;
+    }
+
+    #qr-reader__scan_region {
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
 </style>
 @endpush
 
@@ -434,12 +467,39 @@
          ======================================================== -->
     <div id="dashboardDefaultView">
         
-        <!-- Banner Sapaan -->
-        <div class="greeting-banner">
-            <h2>Halo, {{ Auth::user()->officer_name ?? Auth::user()->username ?? 'Petugas Teller' }} 👋</h2>
-            <p>Loket kamu siap melayani transaksi hari ini. Pastikan cek saldo kas awal sebelum memulai.</p>
-            <div class="shift-chip"><i class="bi bi-clock-fill"></i> Jadwal Pagi · 07:00–14:00</div>
+        <!-- Banner Sapaan + Aksi Tambah Kas Laci -->
+        <div class="greeting-banner d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2>Halo, {{ Auth::user()->officer_name ?? Auth::user()->username ?? 'Petugas Teller' }} 👋</h2>
+                <p>Loket kamu siap melayani transaksi hari ini. Jika uang kas fisik di laci menipis atau habis, gunakan tombol <strong>Tambah Kas Laci</strong>.</p>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <div class="shift-chip mt-0"><i class="bi bi-clock-fill"></i> Shift Aktif · Modal Kas Laci: Rp {{ number_format($saldoAwal ?? ($activeShift->opening_balance ?? 0), 0, ',', '.') }}</div>
+                    <div class="shift-chip mt-0" style="background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.4);">
+                        <i class="bi bi-cash-stack"></i> Sisa Kas Fisik Laci: <strong>Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex flex-column gap-2" style="z-index: 2;">
+                <button type="button" class="btn btn-light fw-bold rounded-pill px-4 py-2 shadow-sm" style="color: #16233F; font-size: 0.86rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
+                    <i class="bi bi-plus-circle-fill text-success me-1"></i> Tambah Kas Laci
+                </button>
+            </div>
         </div>
+
+        @if(($saldoKas ?? 0) <= 50000)
+            <div class="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 py-3 px-4" style="background: #FFFBEB; color: #92400E; border-left: 5px solid #F59E0B !important;">
+                <div class="d-flex align-items-center gap-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+                    <div>
+                        <strong class="d-block">Perhatian: Uang Kas Fisik di Laci Menipis / Habis (Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }})</strong>
+                        <span class="small">Ambil uang tunai tambahan dari brankas dan masukkan ke sistem agar transaksi penarikan nasabah tidak terhambat.</span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-warning btn-sm fw-bold rounded-pill px-3 py-2 text-white" style="background: #D97706; border: none;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
+                    <i class="bi bi-plus-lg me-1"></i> Masukkan Tambahan Kas Sekarang
+                </button>
+            </div>
+        @endif
 
         <!-- Scanner QR Code (Default Camera State) -->
         <div class="card mb-4" style="border-radius: 20px; border: 1px solid var(--border-soft); overflow: hidden; box-shadow: var(--shadow-card);">
@@ -456,9 +516,9 @@
                 </span>
             </div>
             <div class="card-body p-4 bg-white text-center">
-                <div id="qr-reader" style="width: 100%; max-width: 440px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px dashed #CBD5E1;"></div>
+                <div id="qr-reader"></div>
                 <div id="qr-reader-results" class="mt-3 text-muted small fw-semibold">
-                    Arahkan Kode QR kartu tabungan siswa ke depan kamera
+                    Arahkan Kode QR kartu tabungan siswa ke tengah kotak kamera
                 </div>
             </div>
         </div>
@@ -492,13 +552,13 @@
             <div class="col-6 col-lg-3">
                 <div class="mini-stat">
                     <div class="mini-label">Total Setor Hari Ini</div>
-                    <div class="mini-value green" id="statTotalSetor">Rp {{ number_format($totalSetor ?? 0, 0, ',', '.') }}</div>
+                    <div class="mini-value green" id="statTotalSetor">Rp {{ number_format($totalSetoran ?? $totalSetor ?? 0, 0, ',', '.') }}</div>
                 </div>
             </div>
             <div class="col-6 col-lg-3">
                 <div class="mini-stat">
                     <div class="mini-label">Total Tarik Hari Ini</div>
-                    <div class="mini-value red" id="statTotalTarik">Rp {{ number_format($totalTarik ?? 0, 0, ',', '.') }}</div>
+                    <div class="mini-value red" id="statTotalTarik">Rp {{ number_format($totalPenarikan ?? $totalTarik ?? 0, 0, ',', '.') }}</div>
                 </div>
             </div>
             <div class="col-6 col-lg-3">
@@ -508,9 +568,14 @@
                 </div>
             </div>
             <div class="col-6 col-lg-3">
-                <div class="mini-stat">
-                    <div class="mini-label">Saldo Kas Loket</div>
-                    <div class="mini-value" id="statSaldoKas">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</div>
+                <div class="mini-stat d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="mini-label mb-0">Saldo Kas Laci</div>
+                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-primary" style="font-size: 0.74rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
+                            <i class="bi bi-plus-circle"></i> Tambah Kas
+                        </button>
+                    </div>
+                    <div class="mini-value mt-1" id="statSaldoKas">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</div>
                 </div>
             </div>
         </div>
@@ -553,6 +618,66 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Modal Tambah Uang Kas Laci (Top-Up Kas Shift) -->
+    <div class="modal fade" id="modalTopUpKas" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.22); overflow: hidden;">
+                <div class="modal-header border-0 pb-0 pt-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 48px; height: 48px; border-radius: 14px; background: #ECFDF5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-dark m-0">Tambah Uang Kas Laci</h5>
+                            <p class="text-muted small mb-0">Masukkan nominal uang tunai tambahan yang diambil ke dalam laci</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <form action="{{ route('teller.shift.topup') }}" method="POST">
+                    @csrf
+                    <div class="modal-body px-4 py-3">
+                        <div class="p-3 rounded-3 mb-3 border" style="background: #F8FAFC;">
+                            <div class="d-flex justify-content-between align-items-center small mb-1">
+                                <span class="text-muted">Modal Kas Laci Saat Ini:</span>
+                                <span class="fw-bold text-dark">Rp {{ number_format($saldoAwal ?? ($activeShift->opening_balance ?? 0), 0, ',', '.') }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center small">
+                                <span class="text-muted">Sisa Uang Fisik di Laci:</span>
+                                <span class="fw-bold text-success fs-6">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-dark">Nominal Tambahan Uang Kas (Rp) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold text-dark">Rp</span>
+                                <input type="text" name="amount" class="form-control rupiah-input fw-bold fs-5 text-success" placeholder="Contoh: 500.000" required autofocus>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <span class="nominal-chip" onclick="this.closest('.mb-3').querySelector('input').value='200.000'">+Rp 200.000</span>
+                                <span class="nominal-chip" onclick="this.closest('.mb-3').querySelector('input').value='500.000'">+Rp 500.000</span>
+                                <span class="nominal-chip" onclick="this.closest('.mb-3').querySelector('input').value='1.000.000'">+Rp 1.000.000</span>
+                                <span class="nominal-chip" onclick="this.closest('.mb-3').querySelector('input').value='2.000.000'">+Rp 2.000.000</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small text-dark">Keterangan (Opsional)</label>
+                            <input type="text" name="notes" class="form-control" placeholder="Contoh: Tambahan kas penarikan dari brankas">
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4 pt-1 gap-2">
+                        <button type="button" class="btn btn-light rounded-pill px-4 flex-fill" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4 flex-fill fw-bold" style="background: linear-gradient(135deg, #059669, #10B981); border: none;">
+                            <i class="bi bi-check-circle-fill me-1"></i> Simpan Tambahan Kas
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- ========================================================

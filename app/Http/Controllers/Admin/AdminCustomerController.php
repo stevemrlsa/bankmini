@@ -28,7 +28,11 @@ class AdminCustomerController extends Controller
         // 0. Ensure existing savers with account numbers default to 'active' if status was null
         if (Schema::hasColumn('savers', 'status')) {
             Saver::whereNull('status')->whereNotNull('account_number')->update(['status' => 'active']);
-            $query = Saver::where('status', 'active');
+            $query = Saver::where('status', 'active')
+                ->where(function ($q) {
+                    $q->whereNull('grade_class')
+                      ->orWhere('grade_class', 'not like', 'Lulus%');
+                });
         } else {
             $query = Saver::query();
         }
@@ -54,7 +58,8 @@ class AdminCustomerController extends Controller
             ->withQueryString();
 
         // Distinct classes for filter dropdown
-        $classesQuery = Saver::whereNotNull('grade_class');
+        $classesQuery = Saver::whereNotNull('grade_class')
+            ->where('grade_class', 'not like', 'Lulus%');
         if (Schema::hasColumn('savers', 'status')) {
             $classesQuery->where('status', 'active');
         }
@@ -63,6 +68,127 @@ class AdminCustomerController extends Controller
             ->pluck('grade_class');
 
         return view('admin.savers.index', compact('savers', 'classes'));
+    }
+
+    /**
+     * Halaman khusus untuk menampilkan Data Siswa yang Sudah Lulus (Kelas 3 / XII Alumni)
+     * Lengkap dengan saldo tersimpan, riwayat transaksi, dan fitur Aktifkan Kembali.
+     */
+    public function alumniIndex(Request $request)
+    {
+        $baseQuery = Saver::where(function ($q) {
+            $q->where('grade_class', 'like', 'Lulus%');
+            if (Schema::hasColumn('savers', 'status')) {
+                $q->orWhere('status', 'graduated');
+            }
+        });
+
+        $totalAlumniCount = (clone $baseQuery)->count();
+        $totalAlumniSaldo = (clone $baseQuery)->sum('saldo');
+
+        $classes = (clone $baseQuery)
+            ->whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->distinct()
+            ->pluck('grade_class')
+            ->sort(function ($a, $b) {
+                return strnatcasecmp($a, $b);
+            })
+            ->values();
+
+        $query = clone $baseQuery;
+        $currentClass = null;
+        $prevClass = null;
+        $nextClass = null;
+        $currentClassIndex = 0;
+        $totalClasses = $classes->count();
+
+        if ($request->filled('search')) {
+            $searchTerm = trim($request->search);
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('student_name', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('student_id', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('account_number', 'like', '%' . $searchTerm . '%');
+            });
+            if ($request->filled('class')) {
+                $currentClass = trim($request->class);
+                $query->where('grade_class', $currentClass);
+            }
+        } else {
+            if ($classes->isNotEmpty()) {
+                $requestedClass = $request->query('class');
+                if ($requestedClass && $classes->contains($requestedClass)) {
+                    $currentClass = $requestedClass;
+                } else {
+                    $currentClass = $classes->first();
+                }
+
+                $idx = $classes->search($currentClass);
+                if ($idx !== false) {
+                    $currentClassIndex = $idx + 1;
+                    $prevClass = $idx > 0 ? $classes->get($idx - 1) : null;
+                    $nextClass = $idx < ($totalClasses - 1) ? $classes->get($idx + 1) : null;
+                }
+
+                $query->where('grade_class', $currentClass);
+            }
+        }
+
+        $alumni = $query->orderBy('student_id', 'asc')->get();
+
+        return view('admin.savers.alumni', compact(
+            'alumni',
+            'classes',
+            'currentClass',
+            'prevClass',
+            'nextClass',
+            'currentClassIndex',
+            'totalClasses',
+            'totalAlumniCount',
+            'totalAlumniSaldo'
+        ));
+    }
+
+    /**
+     * Aktifkan kembali akun siswa yang sudah lulus / nonaktif beserta seluruh saldo dan riwayat transaksinya.
+     */
+    public function reactivate(Request $request, $id)
+    {
+        $saver = Saver::findOrFail($id);
+
+        $newClass = trim((string) $request->input('grade_class', ''));
+        if ($newClass === '') {
+            // Jika tidak diisi kelas baru, hilangkan awalan 'Lulus YYYY ' atau set ke XII
+            $cleaned = preg_replace('/^Lulus\s+\d{4}\s*/i', 'XII ', (string) $saver->grade_class);
+            $newClass = trim($cleaned) ?: 'XII';
+        }
+
+        $updateData = [
+            'grade_class' => $newClass,
+        ];
+        if (Schema::hasColumn('savers', 'status')) {
+            $updateData['status'] = 'active';
+        }
+        if (empty($saver->account_number)) {
+            $schoolYear = date('Y');
+            $lastSaver = Saver::where('account_number', 'like', $schoolYear . '%')
+                ->orderBy('account_number', 'desc')
+                ->first();
+            $nextSequence = $lastSaver ? ((int) substr($lastSaver->account_number, -4) + 1) : 1;
+            $updateData['account_number'] = $schoolYear . str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
+        }
+
+        $saver->update($updateData);
+
+        if (class_exists(Member::class)) {
+            Member::where('student_id', $saver->student_id)->update([
+                'status'      => 'active',
+                'grade_class' => $newClass,
+            ]);
+        }
+
+        return redirect()->back()
+            ->with('success', 'Berhasil! Rekening nasabah ' . $saver->student_name . ' telah diaktifkan kembali ke kelas ' . $newClass . ' beserta saldo Rp ' . number_format($saver->saldo ?? 0, 0, ',', '.') . ' dan seluruh riwayat transaksinya.');
     }
 
     /**

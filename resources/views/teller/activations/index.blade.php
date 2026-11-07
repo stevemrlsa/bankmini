@@ -86,27 +86,31 @@
                     Lakukan pendaftaran akun, pembuatan nomor rekening, dan penerimaan setoran awal (minimal Rp 10.000) sekaligus.
                 </p>
             </div>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                @if(!empty($currentClass) && !request('search'))
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-bold">
+                        <i class="bi bi-Easel2-fill me-1"></i> Kelas {{ $currentClass }} ({{ $members->count() }} Siswa)
+                    </span>
+                @endif
                 <span class="badge badge-soft-warning px-3 py-2 rounded-pill fw-semibold">
-                    <i class="bi bi-hourglass-split me-1"></i> {{ $members->count() }} Menunggu Aktivasi
+                    <i class="bi bi-hourglass-split me-1"></i> Total {{ $totalWaitingCount ?? $members->count() }} Menunggu Aktivasi
                 </span>
             </div>
         </div>
 
         {{-- Filter & Search Form --}}
-        <div class="mb-4">
+        <div class="mb-3">
             <form action="{{ route('teller.activations.index') }}" method="GET" class="row g-2 align-items-center">
                 {{-- Class Filter --}}
-                <div class="col-md-3 col-sm-6">
+                <div class="col-md-4 col-sm-6">
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0" style="border-radius: 12px 0 0 12px;">
-                            <i class="bi bi-funnel text-muted"></i>
+                            <i class="bi bi-building text-primary"></i>
                         </span>
-                        <select name="class" class="form-select border-start-0" style="border-radius: 0 12px 12px 0;" onchange="this.form.submit()">
-                            <option value="">Semua Kelas</option>
+                        <select name="class" class="form-select border-start-0 fw-semibold" style="border-radius: 0 12px 12px 0;" onchange="this.form.submit()">
                             @foreach($classes as $c)
-                                <option value="{{ $c }}" {{ request('class') == $c ? 'selected' : '' }}>
-                                    {{ $c }}
+                                <option value="{{ $c }}" {{ ($currentClass ?? request('class')) == $c ? 'selected' : '' }}>
+                                    Kelas: {{ $c }}
                                 </option>
                             @endforeach
                         </select>
@@ -119,7 +123,7 @@
                         <input type="text" 
                                name="search" 
                                class="form-control" 
-                               placeholder="Cari nama atau NIS siswa..." 
+                               placeholder="Cari nama atau NIS di semua kelas..." 
                                value="{{ request('search') }}"
                                style="border-radius: 12px 0 0 12px;">
                         <button type="submit" class="btn btn-primary px-3" style="background: linear-gradient(135deg, #0F766E, #14B8A6); border: none; border-radius: 0 12px 12px 0;" title="Cari Data">
@@ -138,6 +142,44 @@
                 @endif
             </form>
         </div>
+
+        {{-- Per-Class Navigation Header Bar --}}
+        @if(!request('search') && ($totalClasses ?? 0) > 0)
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 mb-3 rounded-4 border" style="background: #F8FAFC;">
+                <div class="d-flex align-items-center gap-2">
+                    @if(!empty($prevClass))
+                        <a href="{{ route('teller.activations.index', ['class' => $prevClass]) }}" class="btn btn-sm btn-outline-dark rounded-pill px-3 fw-semibold">
+                            <i class="bi bi-arrow-left me-1"></i> Kelas Sebelumnya ({{ $prevClass }})
+                        </a>
+                    @else
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" disabled>
+                            <i class="bi bi-arrow-left me-1"></i> Kelas Sebelumnya
+                        </button>
+                    @endif
+                </div>
+
+                <div class="text-center">
+                    <span class="fw-bold text-dark" style="font-size: 0.95rem;">
+                        Menampilkan Tabel Kelas: <span class="text-primary">{{ $currentClass }}</span>
+                    </span>
+                    <small class="text-muted d-block" style="font-size: 0.75rem;">
+                        Kelas {{ $currentClassIndex ?? 1 }} dari {{ $totalClasses ?? 1 }} ({{ $members->count() }} siswa di kelas ini)
+                    </small>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    @if(!empty($nextClass))
+                        <a href="{{ route('teller.activations.index', ['class' => $nextClass]) }}" class="btn btn-sm btn-dark rounded-pill px-3 fw-semibold" style="background: #16233F;">
+                            Kelas Selanjutnya ({{ $nextClass }}) <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    @else
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" disabled>
+                            Kelas Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    @endif
+                </div>
+            </div>
+        @endif
 
         {{-- Inactive Students Table --}}
         <div class="table-responsive">
@@ -192,6 +234,35 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- Per-Class Navigation Footer Bar --}}
+        @if(!request('search') && ($totalClasses ?? 0) > 1)
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 mt-3 border-top">
+                @if(!empty($prevClass))
+                    <a href="{{ route('teller.activations.index', ['class' => $prevClass]) }}" class="btn btn-outline-dark rounded-pill px-4 fw-semibold">
+                        <i class="bi bi-arrow-left me-1"></i> Kelas Sebelumnya ({{ $prevClass }})
+                    </a>
+                @else
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" disabled>
+                        <i class="bi bi-arrow-left me-1"></i> Kelas Sebelumnya
+                    </button>
+                @endif
+
+                <span class="small text-muted fw-semibold">
+                    Halaman Kelas {{ $currentClassIndex ?? 1 }} / {{ $totalClasses ?? 1 }} &bull; <strong>{{ $currentClass }}</strong>
+                </span>
+
+                @if(!empty($nextClass))
+                    <a href="{{ route('teller.activations.index', ['class' => $nextClass]) }}" class="btn btn-dark rounded-pill px-4 fw-semibold" style="background: #16233F;">
+                        Kelas Selanjutnya ({{ $nextClass }}) <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                @else
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" disabled>
+                        Kelas Selanjutnya <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                @endif
+            </div>
+        @endif
     </div>
 </div>
 

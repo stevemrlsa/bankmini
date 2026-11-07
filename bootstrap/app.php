@@ -20,5 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Sesi login telah berakhir. Silakan login kembali.'], 419);
+            }
+            return redirect()->route('login', ['expired' => 1])
+                ->with('error', 'Sesi keamanan halaman Anda telah berakhir karena tidak ada aktivitas. Silakan masuk kembali.');
+        });
     })->create();

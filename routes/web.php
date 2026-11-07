@@ -102,8 +102,11 @@ Route::middleware(['auth'])->group(function () {
     // Profil Pengguna, Ganti Sandi & Ganti Email via OTP (Batas waktu 2 menit)
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::post('/profile/password/otp', [ProfileController::class, 'requestPasswordOtp'])->name('profile.password.otp');
+    Route::post('/profile/password/verify-otp', [ProfileController::class, 'verifyPasswordOtp'])->name('profile.password.verify-otp');
+    Route::post('/profile/password/cancel', [ProfileController::class, 'cancelPasswordOtp'])->name('profile.password.cancel');
     Route::post('/profile/password/update', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::post('/profile/email/otp', [ProfileController::class, 'requestEmailOtp'])->name('profile.email.otp');
+    Route::post('/profile/email/cancel', [ProfileController::class, 'cancelEmailOtp'])->name('profile.email.cancel');
     Route::post('/profile/email/update', [ProfileController::class, 'verifyAndChangeEmail'])->name('profile.email.update');
 });
 
@@ -113,6 +116,13 @@ Route::middleware(['auth'])->group(function () {
 Route::prefix('admin')->middleware(['auth', 'role:Administrator,Admin'])->group(function () {
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/dashboard/stats', [DashboardController::class, 'realtimeStats'])->name('admin.dashboard.stats');
+    Route::get('/balance-summary', [DashboardController::class, 'balanceSummary'])->name('admin.balance.summary');
+    Route::get('/transactions', [DashboardController::class, 'transactions'])->name('admin.transactions.index');
+
+    // Data Siswa Lulus (Alumni Kelas XII) & Aktivasi Kembali
+    Route::get('/alumni', [AdminCustomerController::class, 'alumniIndex'])->name('admin.alumni.index');
+    Route::post('/alumni/{id}/reactivate', [AdminCustomerController::class, 'reactivate'])->name('admin.alumni.reactivate');
 
     // Manajemen Pegawai / User
     Route::get('/users', [AdminEmployeeController::class, 'index'])->name('admin.users.index');
@@ -193,6 +203,7 @@ Route::prefix('teller')->middleware(['auth', 'role:Teller'])->group(function () 
     // Manajemen Shift / Buka Laci Kasir (TIDAK boleh dilindungi teller.shift untuk cegah loop redirect)
     Route::get('/shift/create', [TellerShiftController::class, 'create'])->name('teller.shift.create');
     Route::post('/shift', [TellerShiftController::class, 'store'])->name('teller.shift.store');
+    Route::post('/shift/top-up', [TellerShiftController::class, 'topUp'])->name('teller.shift.topup');
 
     // Rute Operasional & Transaksi (Wajib memiliki Shift / Modal Awal yang Aktif)
     Route::middleware('teller.shift')->group(function () {

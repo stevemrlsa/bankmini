@@ -6,21 +6,89 @@
 @section('page-subtitle', 'Kelola informasi identitas, ganti kata sandi, dan perbarui alamat email dengan verifikasi kode OTP')
 
 @section('content')
+@php
+    $activeTab = session('active_tab');
+    if (!$activeTab) {
+        if (session('profile_pw_otp_sent') || session('profile_pw_otp_verified')) {
+            $activeTab = 'password';
+        } elseif (session('change_email_otp_sent')) {
+            $activeTab = 'email';
+        } else {
+            $activeTab = 'info';
+        }
+    }
+    $displayName = $user->officer_name ?: ($user->name ?: $user->username);
+@endphp
+<style>
+    .profile-hero-banner {
+        border-radius: 20px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #16233F 0%, #24355A 100%) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 12px 30px rgba(22, 35, 63, 0.18);
+        padding: 26px 28px;
+        margin-bottom: 24px;
+    }
+    .profile-hero-banner h4 {
+        color: #FFFFFF !important;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    .profile-hero-meta {
+        color: rgba(255, 255, 255, 0.82) !important;
+        font-size: 0.85rem;
+    }
+    .profile-hero-meta strong {
+        color: #FFFFFF !important;
+    }
+    .step-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+    }
+    .step-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #F1F5F9;
+        color: #64748B;
+        border: 1px solid #E2E8F0;
+    }
+    .step-pill.active {
+        background: #16233F;
+        color: #FFFFFF;
+        border-color: #16233F;
+        box-shadow: 0 4px 12px rgba(22, 35, 63, 0.2);
+    }
+    .step-pill.done {
+        background: #ECFDF5;
+        color: #059669;
+        border-color: #A7F3D0;
+    }
+</style>
+
 <div class="container-fluid px-0">
 
     {{-- Notifikasi Sukses / Error / Notice --}}
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm d-flex align-items-center mb-4" style="border-radius: 14px;" role="alert">
+        <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm d-flex align-items-center mb-4" style="border-radius: 14px; background: #ECFDF5; color: #065F46; border-left: 4px solid #10B981 !important;" role="alert">
             <i class="bi bi-check-circle-fill fs-5 me-2 text-success"></i>
-            <div>{{ session('success') }}</div>
+            <div class="fw-medium">{{ session('success') }}</div>
             <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
 
     @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm d-flex align-items-center mb-4" style="border-radius: 14px;" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm d-flex align-items-center mb-4" style="border-radius: 14px; background: #FEF2F2; color: #991B1B; border-left: 4px solid #EF4444 !important;" role="alert">
             <i class="bi bi-exclamation-triangle-fill fs-5 me-2 text-danger"></i>
-            <div>{{ session('error') }}</div>
+            <div class="fw-medium">{{ session('error') }}</div>
             <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
@@ -38,11 +106,11 @@
     @endif
 
     @if ($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius: 14px;" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-4" style="border-radius: 14px; background: #FEF2F2; color: #991B1B;" role="alert">
             <div class="d-flex align-items-start">
-                <i class="bi bi-exclamation-octagon-fill fs-5 me-2 flex-shrink-0 mt-1"></i>
+                <i class="bi bi-exclamation-octagon-fill fs-5 me-2 flex-shrink-0 mt-1 text-danger"></i>
                 <div>
-                    <strong>Perhatian:</strong>
+                    <strong>Terdapat Kesalahan Input:</strong>
                     <ul class="mb-0 ps-3 mt-1 small">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>
@@ -54,31 +122,29 @@
         </div>
     @endif
 
-    <!-- Profile Header Card -->
-    <div class="card border-0 shadow-sm mb-4" style="border-radius: 20px; overflow: hidden; background: linear-gradient(135deg, #16233F 0%, #24355A 100%); color: #FFFFFF;">
-        <div class="card-body p-4">
-            <div class="d-flex align-items-center gap-4 flex-wrap">
-                <div class="d-flex align-items-center justify-content-center rounded-circle fw-bold shadow" 
-                     style="width: 76px; height: 76px; background: #FFFFFF; color: #16233F; font-size: 2rem; border: 3px solid rgba(255,255,255,0.4);">
-                    {{ strtoupper(substr($user->officer_name ?? $user->username ?? 'U', 0, 1)) }}
+    <!-- Profile Header Banner -->
+    <div class="profile-hero-banner">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div class="d-flex align-items-center justify-content-center rounded-circle fw-bold shadow" 
+                 style="width: 76px; height: 76px; background: #FFFFFF; color: #16233F; font-size: 2rem; border: 3px solid rgba(255,255,255,0.4); flex-shrink: 0;">
+                {{ strtoupper(substr($displayName ?? 'U', 0, 1)) }}
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <h4>{{ $displayName }}</h4>
+                    <span class="badge bg-light text-dark px-3 py-1 rounded-pill fw-semibold" style="font-size: 0.78rem;">
+                        <i class="bi bi-shield-lock-fill text-primary me-1"></i>{{ $user->role ?? 'Pegawai' }}
+                    </span>
+                    <span class="badge px-3 py-1 rounded-pill fw-semibold" style="font-size: 0.75rem; background: #DCFCE7; color: #15803D;">
+                        <i class="bi bi-check-circle-fill me-1"></i>{{ $user->status ?? 'Aktif' }}
+                    </span>
                 </div>
-                <div class="flex-grow-1">
-                    <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                        <h4 class="fw-bold mb-0 text-white">{{ $user->officer_name ?? $user->username }}</h4>
-                        <span class="badge bg-light text-dark px-3 py-1 rounded-pill fw-semibold" style="font-size: 0.78rem;">
-                            <i class="bi bi-shield-lock-fill text-primary me-1"></i>{{ $user->role ?? 'Pegawai' }}
-                        </span>
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill fw-semibold" style="font-size: 0.75rem;">
-                            <i class="bi bi-check-circle-fill me-1"></i>{{ $user->status ?? 'Aktif' }}
-                        </span>
-                    </div>
-                    <div class="d-flex align-items-center gap-3 text-white-50 small flex-wrap">
-                        <span><i class="bi bi-person me-1"></i>Username: <strong>{{ $user->username }}</strong></span>
-                        <span>•</span>
-                        <span><i class="bi bi-envelope me-1"></i>Email: <strong>{{ $user->email ?: 'Belum diatur' }}</strong></span>
-                        <span>•</span>
-                        <span><i class="bi bi-calendar-check me-1"></i>Terdaftar sejak: {{ $user->created_at ? $user->created_at->translatedFormat('d F Y') : '-' }}</span>
-                    </div>
+                <div class="d-flex align-items-center gap-3 profile-hero-meta flex-wrap">
+                    <span><i class="bi bi-person me-1"></i>Username: <strong>{{ $user->username }}</strong></span>
+                    <span>•</span>
+                    <span><i class="bi bi-envelope me-1"></i>Email: <strong>{{ $user->email ?: 'Belum diatur' }}</strong></span>
+                    <span>•</span>
+                    <span><i class="bi bi-calendar-check me-1"></i>Terdaftar sejak: <strong>{{ $user->created_at ? $user->created_at->translatedFormat('d F Y') : '-' }}</strong></span>
                 </div>
             </div>
         </div>
@@ -87,19 +153,19 @@
     <!-- Navigation Tabs -->
     <ul class="nav nav-pills mb-4 gap-2" id="profileTab" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link {{ (!session('profile_pw_otp_sent') && !session('change_email_otp_sent')) ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
+            <button class="nav-link {{ $activeTab === 'info' ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
                     id="info-tab" data-bs-toggle="tab" data-bs-target="#tab-info" type="button" role="tab">
                 <i class="bi bi-person-badge me-1"></i> Informasi Lengkap
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link {{ session('profile_pw_otp_sent') ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
+            <button class="nav-link {{ $activeTab === 'password' ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
                     id="password-tab" data-bs-toggle="tab" data-bs-target="#tab-password" type="button" role="tab">
                 <i class="bi bi-key-fill me-1"></i> Ganti Kata Sandi (OTP)
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link {{ session('change_email_otp_sent') ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
+            <button class="nav-link {{ $activeTab === 'email' ? 'active' : '' }} rounded-pill px-4 py-2 fw-semibold" 
                     id="email-tab" data-bs-toggle="tab" data-bs-target="#tab-email" type="button" role="tab">
                 <i class="bi bi-envelope-at-fill me-1"></i> Ganti Alamat Email (OTP)
             </button>
@@ -110,7 +176,7 @@
     <div class="tab-content" id="profileTabContent">
 
         <!-- TAB 1: INFORMASI LENGKAP -->
-        <div class="tab-pane fade {{ (!session('profile_pw_otp_sent') && !session('change_email_otp_sent')) ? 'show active' : '' }}" id="tab-info" role="tabpanel">
+        <div class="tab-pane fade {{ $activeTab === 'info' ? 'show active' : '' }}" id="tab-info" role="tabpanel">
             <div class="card border-0 shadow-sm" style="border-radius: 20px; background: #ffffff;">
                 <div class="card-header bg-white border-bottom py-3 px-4">
                     <h5 class="fw-bold mb-1 text-dark"><i class="bi bi-info-circle text-primary me-2"></i>Data Identitas Akun</h5>
@@ -120,12 +186,12 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-semibold">Nama Lengkap Petugas</label>
-                            <input type="text" class="form-control" value="{{ $user->officer_name ?? $user->username }}" readonly style="background-color: #F8FAFC;">
+                            <input type="text" class="form-control fw-semibold text-dark" value="{{ $displayName }}" readonly style="background-color: #F8FAFC;">
                         </div>
 
                         <div class="col-md-6">
                             <label class="form-label text-muted small fw-semibold">Username Login</label>
-                            <input type="text" class="form-control" value="{{ $user->username }}" readonly style="background-color: #F8FAFC;">
+                            <input type="text" class="form-control fw-semibold text-dark" value="{{ $user->username }}" readonly style="background-color: #F8FAFC;">
                         </div>
 
                         <div class="col-md-6">
@@ -158,85 +224,107 @@
             </div>
         </div>
 
-        <!-- TAB 2: GANTI KATA SANDI (VIA OTP DENGAN TIMER 2 MENIT) -->
-        <div class="tab-pane fade {{ session('profile_pw_otp_sent') ? 'show active' : '' }}" id="tab-password" role="tabpanel">
+        <!-- TAB 2: GANTI KATA SANDI (3 LANGKAH BERTAHAP VIA OTP) -->
+        <div class="tab-pane fade {{ $activeTab === 'password' ? 'show active' : '' }}" id="tab-password" role="tabpanel">
             <div class="card border-0 shadow-sm" style="border-radius: 20px; background: #ffffff;">
                 <div class="card-header bg-white border-bottom py-3 px-4">
                     <h5 class="fw-bold mb-1 text-dark"><i class="bi bi-shield-lock text-primary me-2"></i>Perbarui Kata Sandi Akun</h5>
-                    <small class="text-muted">Untuk menjaga keamanan, kode OTP akan dikirimkan ke email terdaftar Anda (<strong>{{ $user->email }}</strong>)</small>
+                    <small class="text-muted">Alur keamanan 3 langkah: Kirim OTP ke email (<strong>{{ $user->email }}</strong>) &rarr; Verifikasi OTP &rarr; Buat Kata Sandi Baru</small>
                 </div>
                 <div class="card-body p-4">
 
+                    {{-- Indikator 3 Langkah --}}
+                    <div class="step-indicator">
+                        <div class="step-pill {{ !session('profile_pw_otp_sent') ? 'active' : 'done' }}">
+                            <i class="bi {{ !session('profile_pw_otp_sent') ? 'bi-1-circle-fill' : 'bi-check-circle-fill' }}"></i>
+                            <span>1. Minta Kode OTP</span>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                        <div class="step-pill {{ (session('profile_pw_otp_sent') && !session('profile_pw_otp_verified')) ? 'active' : (session('profile_pw_otp_verified') ? 'done' : '') }}">
+                            <i class="bi {{ session('profile_pw_otp_verified') ? 'bi-check-circle-fill' : 'bi-2-circle-fill' }}"></i>
+                            <span>2. Verifikasi OTP</span>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                        <div class="step-pill {{ session('profile_pw_otp_verified') ? 'active' : '' }}">
+                            <i class="bi bi-3-circle-fill"></i>
+                            <span>3. Buat Sandi Baru</span>
+                        </div>
+                    </div>
+
                     @if(!session('profile_pw_otp_sent'))
-                        {{-- Langkah 1: Minta Kode OTP --}}
-                        <div class="text-center py-4" style="max-width: 500px; margin: 0 auto;">
+                        {{-- LANGKAH 1: Minta Kode OTP --}}
+                        <div class="text-center py-3" style="max-width: 500px; margin: 0 auto;">
                             <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
                                  style="width: 64px; height: 64px; background: #EFF6FF; color: #1E3A8A;">
                                 <i class="bi bi-send-check fs-2"></i>
                             </div>
-                            <h5 class="fw-bold text-dark">Kirimkan Kode OTP Keamanan</h5>
-                            <p class="text-muted small">
+                            <h5 class="fw-bold text-dark">Langkah 1: Kirim Kode OTP Keamanan</h5>
+                            <p class="text-muted small mb-4">
                                 Sistem akan mengirimkan 6-digit kode OTP ke alamat email terdaftar Anda: <br>
                                 <strong class="text-primary">{{ $user->email }}</strong>. <br>
-                                Kode OTP ini memiliki batas waktu kedaluwarsa <strong>1 hingga 2 menit</strong>.
+                                Kode OTP ini berlaku selama <strong>2 menit</strong>.
                             </p>
 
                             <form method="POST" action="{{ route('profile.password.otp') }}">
                                 @csrf
-                                <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #111827; border: none;">
+                                <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
                                     <i class="bi bi-envelope-paper me-1"></i> Kirim Kode OTP Sekarang
                                 </button>
                             </form>
                         </div>
-                    @else
-                        {{-- Langkah 2: Masukkan Kode OTP & Password Baru dengan Countdown Timer 2 Menit --}}
-                        <div style="max-width: 520px; margin: 0 auto;">
-                            
+
+                    @elseif(session('profile_pw_otp_sent') && !session('profile_pw_otp_verified'))
+                        {{-- LANGKAH 2: Masukkan & Verifikasi Kode OTP --}}
+                        <div style="max-width: 480px; margin: 0 auto;">
+                            <div class="text-center mb-3">
+                                <h5 class="fw-bold text-dark mb-1">Langkah 2: Verifikasi Kode OTP</h5>
+                                <p class="text-muted small mb-0">Masukkan 6-digit kode OTP yang telah dikirim ke <strong>{{ $user->email }}</strong></p>
+                            </div>
+
                             {{-- Countdown Timer Box --}}
                             <div class="p-3 mb-4 text-center rounded-3 border" style="background-color: #F8FAFC;">
-                                <small class="text-muted d-block mb-1">Batas waktu aktif kode OTP ganti sandi:</small>
+                                <small class="text-muted d-block mb-1">Batas waktu aktif kode OTP:</small>
                                 <span id="pwCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                     <i class="bi bi-stopwatch me-1"></i> <span id="pwTimerDisplay">02:00</span>
                                 </span>
-                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Jika waktu habis, Anda harus meminta kode OTP ulang.</small>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Jika waktu habis, silakan klik Kirim Ulang OTP.</small>
                             </div>
 
-                            <form method="POST" action="{{ route('profile.password.update') }}">
+                            <form method="POST" action="{{ route('profile.password.verify-otp') }}" class="mb-3">
                                 @csrf
-
-                                {{-- Input Kode OTP --}}
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small text-dark">Masukkan 6 Digit Kode OTP <span class="text-danger">*</span></label>
-                                    <input type="text" name="otp" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" 
-                                           class="form-control text-center font-monospace fs-5 fw-bold" placeholder="••••••" required autofocus>
-                                    <div class="form-text">Periksa kotak masuk (Inbox atau Spam) email {{ $user->email }}.</div>
-                                </div>
-
-                                {{-- Password Baru --}}
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold small text-dark">Kata Sandi Baru <span class="text-danger">*</span></label>
-                                    <input type="password" name="password" class="form-control" placeholder="Minimal 6 karakter" required>
-                                </div>
-
-                                {{-- Konfirmasi Password Baru --}}
                                 <div class="mb-4">
-                                    <label class="form-label fw-semibold small text-dark">Ulangi Kata Sandi Baru <span class="text-danger">*</span></label>
-                                    <input type="password" name="password_confirmation" class="form-control" placeholder="Ketik ulang kata sandi baru" required>
+                                    <label class="form-label fw-semibold small text-dark d-block text-center">Kode OTP 6 Digit <span class="text-danger">*</span></label>
+                                    <input type="text" name="otp" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" 
+                                           value="{{ old('otp') }}"
+                                           class="form-control text-center font-monospace fs-4 fw-bold @error('otp') is-invalid @enderror" 
+                                           style="letter-spacing: 8px; border-radius: 14px; padding: 12px;"
+                                           placeholder="••••••" required autofocus>
+                                    @error('otp')
+                                        <div class="invalid-feedback text-center">{{ $message }}</div>
+                                    @enderror
+                                    <div class="form-text text-center mt-2">Periksa kotak masuk (Inbox atau Spam) email {{ $user->email }}.</div>
                                 </div>
 
-                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #111827; border: none;">
-                                        <i class="bi bi-check-circle-fill me-1"></i> Simpan Kata Sandi Baru
-                                    </button>
-
-                                    <form method="POST" action="{{ route('profile.password.otp') }}" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn btn-link text-decoration-none small text-muted">
-                                            <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang OTP
-                                        </button>
-                                    </form>
-                                </div>
+                                <button type="submit" class="btn btn-dark w-100 rounded-pill py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
+                                    <i class="bi bi-shield-check me-1"></i> Verifikasi Kode OTP &amp; Lanjutkan
+                                </button>
                             </form>
+
+                            <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                                <form method="POST" action="{{ route('profile.password.otp') }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-link text-decoration-none small text-primary fw-semibold p-0">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang OTP
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ route('profile.password.cancel') }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-link text-decoration-none small text-danger p-0">
+                                        <i class="bi bi-x-circle me-1"></i> Batal / Kembali
+                                    </button>
+                                </form>
+                            </div>
 
                             {{-- Script Timer 2 Menit --}}
                             <script>
@@ -269,6 +357,55 @@
                                 })();
                             </script>
                         </div>
+
+                    @else
+                        {{-- LANGKAH 3: Buat Kata Sandi Baru (Setelah OTP Terverifikasi) --}}
+                        <div style="max-width: 500px; margin: 0 auto;">
+                            <div class="alert alert-success border-0 rounded-3 py-2 px-3 small mb-4 d-flex align-items-center gap-2" style="background: #ECFDF5; color: #065F46;">
+                                <i class="bi bi-patch-check-fill fs-5 text-success"></i>
+                                <div>
+                                    <strong>Kode OTP Terverifikasi!</strong> Silakan masukkan kata sandi baru Anda di bawah ini.
+                                </div>
+                            </div>
+
+                            <form method="POST" action="{{ route('profile.password.update') }}">
+                                @csrf
+
+                                {{-- Password Baru --}}
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small text-dark">Kata Sandi Baru <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-lock-fill text-muted"></i></span>
+                                        <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Minimal 6 karakter" required autofocus>
+                                        @error('password')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                {{-- Konfirmasi Password Baru --}}
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold small text-dark">Konfirmasi Kata Sandi Baru <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light"><i class="bi bi-lock-check-fill text-muted"></i></span>
+                                        <input type="password" name="password_confirmation" class="form-control" placeholder="Ketik ulang kata sandi baru" required>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Simpan Kata Sandi Baru
+                                    </button>
+                                </div>
+                            </form>
+
+                            <form method="POST" action="{{ route('profile.password.cancel') }}" class="mt-3 text-end">
+                                @csrf
+                                <button type="submit" class="btn btn-link text-decoration-none small text-muted p-0">
+                                    <i class="bi bi-x-circle me-1"></i> Batalkan Perubahan Sandi
+                                </button>
+                            </form>
+                        </div>
                     @endif
 
                 </div>
@@ -276,7 +413,7 @@
         </div>
 
         <!-- TAB 3: GANTI ALAMAT EMAIL (VERIFIKASI PASSWORD SAAT INI + OTP KE EMAIL BARU DENGAN TIMER 2 MENIT) -->
-        <div class="tab-pane fade {{ session('change_email_otp_sent') ? 'show active' : '' }}" id="tab-email" role="tabpanel">
+        <div class="tab-pane fade {{ $activeTab === 'email' ? 'show active' : '' }}" id="tab-email" role="tabpanel">
             <div class="card border-0 shadow-sm" style="border-radius: 20px; background: #ffffff;">
                 <div class="card-header bg-white border-bottom py-3 px-4">
                     <h5 class="fw-bold mb-1 text-dark"><i class="bi bi-envelope-check text-primary me-2"></i>Perbarui Alamat Email Akun</h5>
@@ -351,14 +488,17 @@
                                 </div>
 
                                 <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #111827; border: none;">
+                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
                                         <i class="bi bi-check-circle-fill me-1"></i> Verifikasi &amp; Simpan Email Baru
                                     </button>
-
-                                    <a href="{{ route('profile.show') }}" class="btn btn-link text-decoration-none small text-muted">
-                                        <i class="bi bi-x-circle me-1"></i> Batal
-                                    </a>
                                 </div>
+                            </form>
+
+                            <form method="POST" action="{{ route('profile.email.cancel') }}" class="mt-3 text-end">
+                                @csrf
+                                <button type="submit" class="btn btn-link text-decoration-none small text-danger p-0">
+                                    <i class="bi bi-x-circle me-1"></i> Batal / Ganti Email Lain
+                                </button>
                             </form>
 
                             {{-- Script Timer 2 Menit --}}
