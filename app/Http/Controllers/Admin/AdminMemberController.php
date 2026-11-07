@@ -130,6 +130,9 @@ class AdminMemberController extends Controller
      */
     public function import(Request $request)
     {
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(300);
+
         try {
             if (!$request->hasFile('excel_file')) {
                 return back()->with('error', 'Silakan pilih file Excel (.xlsx / .xls / .csv) terlebih dahulu.');
@@ -182,11 +185,30 @@ class AdminMemberController extends Controller
                 return back()->with('error', 'File yang diunggah kosong atau tidak memiliki data.');
             }
 
-            // 2. Loop & simpan data ke database
+            // 2. Pre-check ketersediaan kolom database agar tahan terhadap migrasi yang tertunda di hosting
+            $hasSaverPasswordCol = Schema::hasColumn('savers', 'password');
+            $hasSaverGenderCol   = Schema::hasColumn('savers', 'gender');
+            $hasSaverStatusCol   = Schema::hasColumn('savers', 'status');
+            $hasSaverSaldoCol    = Schema::hasColumn('savers', 'saldo');
+            $hasUserStatusCol    = Schema::hasColumn('users', 'status');
+            $hasMembersTable     = Schema::hasTable('members');
+            $hasMemberStatusCol  = $hasMembersTable && Schema::hasColumn('members', 'status');
+
             $importedCount = 0;
             $isHeader = true;
 
-            DB::transaction(function () use ($rows, &$importedCount, &$isHeader) {
+            DB::transaction(function () use (
+                $rows, 
+                &$importedCount, 
+                &$isHeader,
+                $hasSaverPasswordCol,
+                $hasSaverGenderCol,
+                $hasSaverStatusCol,
+                $hasSaverSaldoCol,
+                $hasUserStatusCol,
+                $hasMembersTable,
+                $hasMemberStatusCol
+            ) {
                 foreach ($rows as $row) {
                     if (empty($row) || !is_array($row)) {
                         continue;
@@ -214,45 +236,65 @@ class AdminMemberController extends Controller
 
                     // A. Saver record
                     $saverData = [
-                        'account_number' => null,
                         'student_name'   => $studentName,
                         'grade_class'    => $gradeClass,
                         'security_pin'   => Hash::make('123456'),
-                        'password'       => Hash::make('123456'),
-                        'saldo'          => 0,
                     ];
-                    if (Schema::hasColumn('savers', 'gender')) {
+                    if ($hasSaverSaldoCol) {
+                        $saverData['saldo'] = 0;
+                    }
+                    if ($hasSaverPasswordCol) {
+                        $saverData['password'] = Hash::make('123456');
+                    }
+                    if ($hasSaverGenderCol) {
                         $saverData['gender'] = $gender;
                     }
-                    if (Schema::hasColumn('savers', 'status')) {
+                    if ($hasSaverStatusCol) {
                         $saverData['status'] = 'inactive';
                     }
 
-                    Saver::updateOrCreate(['student_id' => $studentId], $saverData);
-
-                    // B. User record
-                    $user = User::firstOrCreate(
-                        ['username' => 'siswa_' . $studentId],
-                        [
-                            'password'     => Hash::make('123456'),
-                            'officer_name' => $studentName,
-                            'role'         => 'Saver',
-                            'status'       => 'Aktif',
-                        ]
-                    );
-
-                    // C. Member record
-                    $memberData = [
-                        'user_id'         => $user->id,
-                        'name'            => $studentName,
-                        'grade_class'     => $gradeClass,
-                        'graduation_year' => date('Y'),
-                    ];
-                    if (Schema::hasColumn('members', 'status')) {
-                        $memberData['status'] = 'inactive';
+                    // Tangani jika kolom account_number di skema database server belum diubah jadi nullable
+                    try {
+                        $saverData['account_number'] = null;
+                        Saver::updateOrCreate(['student_id' => $studentId], $saverData);
+                    } catch (\Throwable $saverEx) {
+                        if (stripos($saverEx->getMessage(), 'account_number') !== false) {
+                            $saverData['account_number'] = 'DRAFT-' . $studentId;
+                            Saver::updateOrCreate(['student_id' => $studentId], $saverData);
+                        } else {
+                            throw $saverEx;
+                        }
                     }
 
-                    Member::updateOrCreate(['student_id' => $studentId], $memberData);
+                    // B. User record
+                    $userAttributes = [
+                        'password'     => Hash::make('123456'),
+                        'officer_name' => $studentName,
+                        'role'         => 'Saver',
+                    ];
+                    if ($hasUserStatusCol) {
+                        $userAttributes['status'] = 'Aktif';
+                    }
+
+                    $user = User::firstOrCreate(
+                        ['username' => 'siswa_' . $studentId],
+                        $userAttributes
+                    );
+
+                    // C. Member record (sinkron jika tabel members ada)
+                    if ($hasMembersTable) {
+                        $memberData = [
+                            'user_id'         => $user->id,
+                            'name'            => $studentName,
+                            'grade_class'     => $gradeClass,
+                            'graduation_year' => date('Y'),
+                        ];
+                        if ($hasMemberStatusCol) {
+                            $memberData['status'] = 'inactive';
+                        }
+
+                        Member::updateOrCreate(['student_id' => $studentId], $memberData);
+                    }
 
                     $importedCount++;
                 }
@@ -265,11 +307,14 @@ class AdminMemberController extends Controller
             return redirect()->route('admin.members.index')
                 ->with('success', "Berhasil mengimpor {$importedCount} data siswa baru ke Data Anggota! Silakan lakukan aktivasi rekening.");
         } catch (\Throwable $e) {
-            Log::error('Import data siswa gagal: ' . $e->getMessage(), [
-                'file'  => $e->getFile(),
-                'line'  => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            try {
+                Log::error('Import data siswa gagal: ' . $e->getMessage(), [
+                    'file'  => $e->getFile(),
+                    'line'  => $e->getLine(),
+                ]);
+            } catch (\Throwable $logEx) {
+                // Jangan biarkan error penulisan file log menyebabkan 500
+            }
 
             return back()->with('error', 'Gagal memproses file: ' . $e->getMessage());
         }
