@@ -443,19 +443,26 @@ class AdminCustomerController extends Controller
      */
     public function import(Request $request)
     {
-        $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx,xls,csv,txt|max:10240',
-        ], [
-            'excel_file.required' => 'Silakan pilih file Excel (.xlsx / .xls / .csv) terlebih dahulu.',
-            'excel_file.mimes'    => 'Format file harus berupa Excel (.xlsx, .xls) atau CSV (.csv).',
-            'excel_file.max'      => 'Ukuran file tidak boleh melebihi 10MB.',
-        ]);
-
         try {
-            $file = $request->file('excel_file');
-            $extension = strtolower($file->getClientOriginalExtension());
-            $realPath = $file->getRealPath();
+            if (!$request->hasFile('excel_file')) {
+                return back()->with('error', 'Silakan pilih file Excel (.xlsx / .xls / .csv) terlebih dahulu.');
+            }
 
+            $file = $request->file('excel_file');
+            if (!$file->isValid()) {
+                return back()->with('error', 'File yang diunggah tidak valid atau melebihi batas upload server (upload_max_filesize).');
+            }
+
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (!in_array($extension, ['xlsx', 'xls', 'csv', 'txt'])) {
+                return back()->with('error', 'Format file harus berupa Excel (.xlsx, .xls) atau CSV (.csv).');
+            }
+
+            if ($file->getSize() > 10 * 1024 * 1024) {
+                return back()->with('error', 'Ukuran file tidak boleh melebihi 10MB.');
+            }
+
+            $realPath = $file->getRealPath();
             $rows = [];
 
             if (in_array($extension, ['csv', 'txt'])) {
@@ -470,12 +477,16 @@ class AdminCustomerController extends Controller
                     fclose($handle);
                 }
             } else {
+                if (!class_exists(\ZipArchive::class) && $extension === 'xlsx') {
+                    return back()->with('error', 'Ekstensi PHP "zip" belum aktif di cPanel hosting Anda (diperlukan untuk membaca file .xlsx). Silakan aktifkan modul "zip" di cPanel (Select PHP Version -> Extensions) atau simpan file sebagai format .CSV lalu unggah kembali.');
+                }
+
                 if (class_exists(IOFactory::class)) {
                     $spreadsheet = IOFactory::load($realPath);
                     $worksheet = $spreadsheet->getActiveSheet();
                     $rows = $worksheet->toArray(null, true, true, false);
                 } else {
-                    throw new \RuntimeException('Library PhpSpreadsheet belum tersedia untuk membaca format Excel.');
+                    return back()->with('error', 'Library PhpSpreadsheet belum tersedia untuk membaca format Excel. Silakan gunakan format .CSV terlebih dahulu.');
                 }
             }
 
@@ -512,19 +523,22 @@ class AdminCustomerController extends Controller
                     $rawGender   = isset($row[3]) ? strtoupper(trim((string)$row[3])) : '';
                     $gender      = in_array($rawGender, ['L', 'P', 'LAKI-LAKI', 'PEREMPUAN']) ? substr($rawGender, 0, 1) : null;
 
-                    Saver::updateOrCreate(
-                        ['student_id' => $studentId],
-                        [
-                            'account_number' => null,
-                            'student_name'   => $studentName,
-                            'grade_class'    => $gradeClass,
-                            'gender'         => $gender,
-                            'security_pin'   => Hash::make('123456'),
-                            'password'       => Hash::make('123456'),
-                            'status'         => 'inactive',
-                            'saldo'          => 0,
-                        ]
-                    );
+                    $saverData = [
+                        'account_number' => null,
+                        'student_name'   => $studentName,
+                        'grade_class'    => $gradeClass,
+                        'security_pin'   => Hash::make('123456'),
+                        'password'       => Hash::make('123456'),
+                        'saldo'          => 0,
+                    ];
+                    if (Schema::hasColumn('savers', 'gender')) {
+                        $saverData['gender'] = $gender;
+                    }
+                    if (Schema::hasColumn('savers', 'status')) {
+                        $saverData['status'] = 'inactive';
+                    }
+
+                    Saver::updateOrCreate(['student_id' => $studentId], $saverData);
 
                     $user = User::firstOrCreate(
                         ['username' => 'siswa_' . $studentId],
@@ -536,16 +550,17 @@ class AdminCustomerController extends Controller
                         ]
                     );
 
-                    Member::updateOrCreate(
-                        ['student_id' => $studentId],
-                        [
-                            'user_id'         => $user->id,
-                            'name'            => $studentName,
-                            'grade_class'     => $gradeClass,
-                            'graduation_year' => date('Y'),
-                            'status'          => 'inactive',
-                        ]
-                    );
+                    $memberData = [
+                        'user_id'         => $user->id,
+                        'name'            => $studentName,
+                        'grade_class'     => $gradeClass,
+                        'graduation_year' => date('Y'),
+                    ];
+                    if (Schema::hasColumn('members', 'status')) {
+                        $memberData['status'] = 'inactive';
+                    }
+
+                    Member::updateOrCreate(['student_id' => $studentId], $memberData);
 
                     $importedCount++;
                 }

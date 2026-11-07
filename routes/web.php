@@ -269,3 +269,70 @@ Route::middleware(['saver.auth'])->group(function () {
     Route::post('/nasabah/security', [SaverPortalController::class, 'updateSecurity'])->name('saver.security.update');
     Route::post('/nasabah/savings-goal', [SaverPortalController::class, 'updateSavingsGoal'])->name('saver.goal.update');
 });
+
+// ========================================================
+// 6. SERVER DIAGNOSTICS & WEBHOOK RUNNER (BROWSER-SAFE)
+// ========================================================
+Route::get('/server-status', function (\Illuminate\Http\Request $request) {
+    if ($request->query('secret') !== 'skansaba_super_secret_token_12345') {
+        abort(403, 'Akses ditolak.');
+    }
+
+    return response()->json([
+        'status'         => 'ok',
+        'php_version'    => PHP_VERSION,
+        'extensions'     => [
+            'zip'       => extension_loaded('zip'),
+            'fileinfo'  => extension_loaded('fileinfo'),
+            'pdo_mysql' => extension_loaded('pdo_mysql'),
+            'gd'        => extension_loaded('gd'),
+            'intl'      => extension_loaded('intl'),
+            'bcmath'    => extension_loaded('bcmath'),
+        ],
+        'upload_max'     => ini_get('upload_max_filesize'),
+        'post_max'       => ini_get('post_max_size'),
+        'memory_limit'   => ini_get('memory_limit'),
+        'max_exec_time'  => ini_get('max_execution_time'),
+    ]);
+});
+
+Route::get('/server-migrate', function (\Illuminate\Http\Request $request) {
+    if ($request->query('secret') !== 'skansaba_super_secret_token_12345') {
+        abort(403, 'Akses ditolak.');
+    }
+
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $migrateOutput = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+        $optimizeOutput = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        return response()->json([
+            'status'          => 'success',
+            'message'         => 'Migrasi & optimize:clear berhasil dijalankan!',
+            'migrate_output'  => $migrateOutput,
+            'optimize_output' => $optimizeOutput,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
+Route::get('/server-logs', function (\Illuminate\Http\Request $request) {
+    if ($request->query('secret') !== 'skansaba_super_secret_token_12345') {
+        abort(403, 'Akses ditolak.');
+    }
+
+    $logFile = storage_path('logs/laravel.log');
+    if (!file_exists($logFile)) {
+        return response('File laravel.log tidak ditemukan atau belum ada error tercatat.', 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    }
+
+    $lines = file($logFile);
+    $lastLines = array_slice($lines, -150);
+    return response(implode('', $lastLines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+});
