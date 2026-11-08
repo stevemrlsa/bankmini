@@ -103,7 +103,26 @@ class AdminMemberController extends Controller
      */
     public function importForm()
     {
-        return view('admin.savers.import');
+        $currentYear = date('Y');
+        $lastPromotionYear = \App\Models\SystemSetting::where('key', 'last_class_promotion_year')->value('value');
+        $lastPromotionAt = \App\Models\SystemSetting::where('key', 'last_class_promotion_at')->value('value');
+
+        // Cek apakah ada data siswa di sistem yang perlu dinaikkan kelasnya
+        $hasExistingStudents = Saver::whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->where('grade_class', 'not like', 'Lulus%')
+            ->exists();
+
+        // Boleh impor jika belum ada siswa sama sekali (setup awal baru), ATAU sudah melakukan kenaikan kelas tahun ini
+        $canImport = (!$hasExistingStudents) || ($lastPromotionYear == $currentYear);
+
+        return view('admin.savers.import', compact(
+            'canImport',
+            'currentYear',
+            'lastPromotionYear',
+            'lastPromotionAt',
+            'hasExistingStudents'
+        ));
     }
 
     /**
@@ -173,6 +192,18 @@ class AdminMemberController extends Controller
     {
         @ini_set('memory_limit', '512M');
         @set_time_limit(300);
+
+        // Validasi: Wajib melakukan Kenaikan Kelas Siswa terlebih dahulu sebelum import siswa baru
+        $currentYear = date('Y');
+        $lastPromotionYear = \App\Models\SystemSetting::where('key', 'last_class_promotion_year')->value('value');
+        $hasExistingStudents = Saver::whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->where('grade_class', 'not like', 'Lulus%')
+            ->exists();
+
+        if ($hasExistingStudents && $lastPromotionYear != $currentYear) {
+            return back()->with('error', 'Aksi Ditolak: Anda wajib melakukan "Kenaikan Kelas Siswa" terlebih dahulu di menu Data Nasabah sebelum dapat mengimpor data siswa baru untuk tahun ajaran ' . $currentYear . '.');
+        }
 
         try {
             if (!$request->hasFile('excel_file')) {

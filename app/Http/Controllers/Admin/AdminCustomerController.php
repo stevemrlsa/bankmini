@@ -28,11 +28,16 @@ class AdminCustomerController extends Controller
         // 0. Ensure existing savers with account numbers default to 'active' if status was null
         if (Schema::hasColumn('savers', 'status')) {
             Saver::whereNull('status')->whereNotNull('account_number')->update(['status' => 'active']);
-            $query = Saver::where('status', 'active')
+            $query = Saver::whereIn('status', ['active', 'blocked'])
                 ->where(function ($q) {
                     $q->whereNull('grade_class')
                       ->orWhere('grade_class', 'not like', 'Lulus%');
                 });
+
+            // Filter status rekening (Semua, Aktif, Diblokir)
+            if ($request->filled('status') && in_array($request->status, ['active', 'blocked'])) {
+                $query->where('status', $request->status);
+            }
         } else {
             $query = Saver::query();
         }
@@ -297,6 +302,24 @@ class AdminCustomerController extends Controller
             }
         });
 
+        // Simpan waktu dan tahun pelaksanaan kenaikan kelas ke SystemSetting
+        \App\Models\SystemSetting::updateOrCreate(
+            ['key' => 'last_class_promotion_year'],
+            ['value' => date('Y'), 'description' => 'Tahun terakhir eksekusi kenaikan kelas massal']
+        );
+        \App\Models\SystemSetting::updateOrCreate(
+            ['key' => 'last_class_promotion_at'],
+            ['value' => now()->toDateTimeString(), 'description' => 'Waktu terakhir eksekusi kenaikan kelas massal']
+        );
+
+        \App\Models\AuditLog::record(
+            'NAIK_KELAS_MASSAL',
+            'Kenaikan Kelas',
+            "Memproses kenaikan kelas massal untuk {$promotedCount} siswa dan {$graduatedCount} siswa kelulusan/alumni (Tahun Ajaran " . date('Y') . ").",
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+        );
+
         $message = "Kenaikan kelas massal berhasil diproses untuk seluruh siswa (aktif maupun nonaktif). {$promotedCount} data siswa berhasil naik kelas";
         if ($graduatedCount > 0) {
             $message .= ", dan {$graduatedCount} siswa kelas akhir dialihkan ke status kelulusan (alumni).";
@@ -306,6 +329,58 @@ class AdminCustomerController extends Controller
 
         return redirect()->route('admin.savers.index')
             ->with('success', $message);
+    }
+
+    /**
+     * Blokir rekening tabungan siswa (mencegah penarikan dan setoran).
+     */
+    public function blockAccount(Request $request, $id)
+    {
+        $saver = Saver::findOrFail($id);
+        $saver->update(['status' => 'blocked']);
+
+        // Sinkronkan status akun user siswa jika ada
+        if (class_exists(User::class)) {
+            User::where('username', 'siswa_' . $saver->student_id)->update(['status' => 'Blokir']);
+        }
+
+        $reason = $request->input('reason', 'Pemblokiran rekening oleh Administrator');
+
+        \App\Models\AuditLog::record(
+            'BLOKIR_REKENING',
+            'Data Nasabah',
+            "Memblokir rekening nasabah: {$saver->student_name} (No. Rek: {$saver->account_number}, NIS: {$saver->student_id}). Alasan: {$reason}",
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+        );
+
+        return redirect()->back()
+            ->with('success', 'Rekening nasabah ' . $saver->student_name . ' (' . ($saver->account_number ?? $saver->student_id) . ') berhasil DIBLOKIR. Transaksi setor dan tarik tunai dinonaktifkan.');
+    }
+
+    /**
+     * Buka blokir rekening tabungan siswa.
+     */
+    public function unblockAccount($id)
+    {
+        $saver = Saver::findOrFail($id);
+        $saver->update(['status' => 'active']);
+
+        // Buka blokir akun user siswa jika ada
+        if (class_exists(User::class)) {
+            User::where('username', 'siswa_' . $saver->student_id)->update(['status' => 'Aktif']);
+        }
+
+        \App\Models\AuditLog::record(
+            'BUKA_BLOKIR_REKENING',
+            'Data Nasabah',
+            "Membuka blokir rekening nasabah: {$saver->student_name} (No. Rek: {$saver->account_number}, NIS: {$saver->student_id}).",
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+        );
+
+        return redirect()->back()
+            ->with('success', 'Blokir rekening nasabah ' . $saver->student_name . ' (' . ($saver->account_number ?? $saver->student_id) . ') berhasil DIBUKA. Rekening kembali aktif.');
     }
 
     /**
@@ -501,7 +576,26 @@ class AdminCustomerController extends Controller
      */
     public function importForm()
     {
-        return view('admin.savers.import');
+        $currentYear = date('Y');
+        $lastPromotionYear = \App\Models\SystemSetting::where('key', 'last_class_promotion_year')->value('value');
+        $lastPromotionAt = \App\Models\SystemSetting::where('key', 'last_class_promotion_at')->value('value');
+
+        // Cek apakah ada data siswa di sistem yang perlu dinaikkan kelasnya
+        $hasExistingStudents = Saver::whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->where('grade_class', 'not like', 'Lulus%')
+            ->exists();
+
+        // Boleh impor jika belum ada siswa sama sekali (setup awal baru), ATAU sudah melakukan kenaikan kelas tahun ini
+        $canImport = (!$hasExistingStudents) || ($lastPromotionYear == $currentYear);
+
+        return view('admin.savers.import', compact(
+            'canImport',
+            'currentYear',
+            'lastPromotionYear',
+            'lastPromotionAt',
+            'hasExistingStudents'
+        ));
     }
 
     /**
@@ -571,6 +665,18 @@ class AdminCustomerController extends Controller
     {
         @ini_set('memory_limit', '512M');
         @set_time_limit(300);
+
+        // Validasi: Wajib melakukan Kenaikan Kelas Siswa terlebih dahulu sebelum import siswa baru
+        $currentYear = date('Y');
+        $lastPromotionYear = \App\Models\SystemSetting::where('key', 'last_class_promotion_year')->value('value');
+        $hasExistingStudents = Saver::whereNotNull('grade_class')
+            ->where('grade_class', '!=', '')
+            ->where('grade_class', 'not like', 'Lulus%')
+            ->exists();
+
+        if ($hasExistingStudents && $lastPromotionYear != $currentYear) {
+            return back()->with('error', 'Aksi Ditolak: Anda wajib melakukan "Kenaikan Kelas Siswa" terlebih dahulu di menu Data Nasabah sebelum dapat mengimpor data siswa baru untuk tahun ajaran ' . $currentYear . '.');
+        }
 
         try {
             if (!$request->hasFile('excel_file')) {

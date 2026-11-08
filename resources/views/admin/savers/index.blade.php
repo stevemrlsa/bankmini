@@ -196,7 +196,13 @@
                 @endif
             </select>
 
-            @if(request('search') || request('class'))
+            <select name="status" class="filter-select" onchange="this.form.submit()">
+                <option value="">Semua Status</option>
+                <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
+                <option value="blocked" {{ request('status') === 'blocked' ? 'selected' : '' }}>Diblokir</option>
+            </select>
+
+            @if(request('search') || request('class') || request('status'))
                 <a href="{{ route('admin.savers.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-2 text-decoration-none" style="font-size: 0.78rem;">
                     <i class="bi bi-x-circle me-1"></i> Reset Filter
                 </a>
@@ -227,13 +233,14 @@
                         <th>NIS</th>
                         <th>Nama Siswa</th>
                         <th>Kelas</th>
+                        <th>Status</th>
                         <th>Saldo Tabungan</th>
-                        <th style="width: 170px;" class="text-center">Aksi</th>
+                        <th style="width: 210px;" class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($savers as $item)
-                    <tr>
+                    <tr style="{{ $item->status === 'blocked' ? 'background: #FEF2F2;' : '' }}">
                         <td>
                             <span class="rek-number">{{ $item->account_number ?? '-' }}</span>
                         </td>
@@ -241,11 +248,21 @@
                             <span class="fw-semibold text-secondary">{{ $item->student_id }}</span>
                         </td>
                         <td>
-                            <!-- Nama Siswa (Avatar Box / Huruf Inisial Telah Dihapus) -->
                             <span class="fw-medium text-dark">{{ $item->student_name }}</span>
                         </td>
                         <td>
                             <span class="kelas-badge">{{ $item->grade_class ?? '-' }}</span>
+                        </td>
+                        <td>
+                            @if($item->status === 'blocked')
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill" style="font-size: 0.74rem;">
+                                    <i class="bi bi-lock-fill me-1"></i>Diblokir
+                                </span>
+                            @else
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" style="font-size: 0.74rem;">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Aktif
+                                </span>
+                            @endif
                         </td>
                         <td>
                             <span class="saldo-value">Rp {{ number_format($item->saldo ?? 0, 0, ',', '.') }}</span>
@@ -266,6 +283,20 @@
                                 <button type="button" class="action-btn text-warning" title="Edit Data Siswa" data-bs-toggle="modal" data-bs-target="#modalEdit{{ $item->id }}">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
+
+                                <!-- Blokir / Buka Blokir Rekening Siswa -->
+                                @if($item->status === 'blocked')
+                                    <form action="{{ route('admin.savers.unblock', $item->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Buka blokir rekening nasabah {{ $item->student_name }}? Rekening akan aktif kembali.');">
+                                        @csrf
+                                        <button type="submit" class="action-btn text-success" title="Buka Blokir Rekening" style="border-color: rgba(22, 163, 74, 0.3); background: #F0FDF4;">
+                                            <i class="bi bi-unlock-fill"></i>
+                                        </button>
+                                    </form>
+                                @else
+                                    <button type="button" class="action-btn text-danger" title="Blokir Rekening Nasabah" data-bs-toggle="modal" data-bs-target="#modalBlock{{ $item->id }}" style="border-color: rgba(220, 38, 38, 0.3);">
+                                        <i class="bi bi-lock-fill"></i>
+                                    </button>
+                                @endif
 
                                 <!-- Reset PIN ke 123456 -->
                                 <form action="{{ route('admin.savers.reset-pin', $item->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin mereset PIN nasabah ini ke 123456?');">
@@ -450,6 +481,44 @@
                                 </div>
                             </form>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Blokir Rekening Nasabah -->
+            <div class="modal fade" id="modalBlock{{ $item->id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content modal-content-glass">
+                        <div class="modal-header border-0 pb-0 justify-content-between">
+                            <h5 class="modal-title fw-bold text-danger">
+                                <i class="bi bi-lock-fill me-2"></i> Blokir Rekening Nasabah
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                        </div>
+                        <form action="{{ route('admin.savers.block', $item->id) }}" method="POST">
+                            @csrf
+                            <div class="modal-body py-3">
+                                <div class="alert alert-danger border-0 rounded-4 p-3 small mb-3">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    Pemblokiran rekening akan menonaktifkan transaksi <strong>Setoran Tunai</strong>, <strong>Penarikan Tunai</strong>, dan akses login aplikasi nasabah.
+                                </div>
+                                <div class="p-3 rounded-3 mb-3 border bg-light">
+                                    <div class="fw-bold text-dark">{{ $item->student_name }}</div>
+                                    <div class="text-muted small">No. Rekening: <strong>{{ $item->account_number ?? '-' }}</strong> · NIS: {{ $item->student_id }}</div>
+                                    <div class="text-success small fw-semibold mt-1">Saldo Tersimpan: Rp {{ number_format($item->saldo ?? 0, 0, ',', '.') }}</div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold text-dark">Alasan Pemblokiran (Opsional)</label>
+                                    <input type="text" name="reason" class="form-control rounded-3" placeholder="Contoh: Kartu/Buku tabungan hilang, permintaan orang tua/wali">
+                                </div>
+                            </div>
+                            <div class="modal-footer border-0 pt-0">
+                                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                                <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
+                                    <i class="bi bi-shield-lock-fill me-1"></i> Ya, Blokir Rekening Ini
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>

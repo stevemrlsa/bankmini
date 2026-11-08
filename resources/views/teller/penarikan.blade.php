@@ -485,7 +485,9 @@
                     @error('amount')
                         <div style="color: #dc2626; font-size: 0.75rem; margin-top: 4px;">{{ $message }}</div>
                     @enderror
-                    <p class="field-helper">Maksimal penarikan tunai sesuai dengan uang fisik yang ada di laci kas saat ini (<strong>Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}</strong>). Sisa saldo mengendap minimal Rp 10.000.</p>
+                    <p class="field-helper" id="amountHelperText">
+                        <i class="bi bi-info-circle me-1"></i> Batas harian reguler: <strong>Rp 1.000.000/hari</strong>. Saldo wajib mengendap di rekening minimal <strong>Rp 10.000</strong>. Penarikan &gt; Rp 1.000.000 wajib memiliki Janjian H-1. Maksimal uang fisik laci: <strong>Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}</strong>.
+                    </p>
                 </div>
 
                 <!-- Hidden PIN Field in Form, populated from PIN modal -->
@@ -865,6 +867,29 @@ document.addEventListener('DOMContentLoaded', function () {
                     helper.innerHTML = '<span class="text-success"><i class="bi bi-shield-check"></i> Identitas nasabah diverifikasi & dikunci dari QR Code.</span>';
                 } else {
                     helper.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Data nasabah berhasil dimuat.</span>';
+                }
+
+                // Cek status blokir
+                if (saver.is_blocked) {
+                    helper.innerHTML = '<div class="alert alert-danger py-2 px-3 mt-2 mb-0 small"><i class="bi bi-lock-fill me-1"></i> <strong>REKENING DIBLOKIR:</strong> Transaksi penarikan dinonaktifkan oleh Administrator.</div>';
+                    btnOpenPinModal.setAttribute('disabled', 'disabled');
+                } else {
+                    btnOpenPinModal.removeAttribute('disabled');
+                    
+                    // Tampilkan info kuota harian & sisa saldo mengendap
+                    let infoHtml = `<div class="mt-2 text-muted" style="font-size:0.75rem;">
+                        <span>Maksimal bisa ditarik (Saldo - Rp 10.000): <strong class="text-success">${saver.formatted_max_withdraw}</strong></span> · 
+                        <span>Sisa kuota harian reguler: <strong class="text-primary">Rp ${Number(saver.remaining_daily_quota || 0).toLocaleString('id-ID')}</strong></span>
+                    </div>`;
+
+                    if (saver.approved_request) {
+                        const ar = saver.approved_request;
+                        infoHtml += `<div class="mt-2 p-2 rounded-3 bg-warning-subtle border border-warning small text-dark d-flex align-items-center justify-content-between">
+                            <div><i class="bi bi-calendar-check-fill text-warning me-1"></i> <strong>Janjian Dana Besar (${ar.request_code}):</strong> Rp ${Number(ar.amount).toLocaleString('id-ID')}</div>
+                            <button type="button" class="btn btn-sm btn-dark py-0 px-2 fw-semibold" style="font-size:0.74rem;" onclick="document.getElementById('amount').value = ${ar.amount};">Gunakan Nominal Ini</button>
+                        </div>`;
+                    }
+                    helper.innerHTML += infoHtml;
                 }
 
                 // 4. Munculkan Tombol Reset / Batal

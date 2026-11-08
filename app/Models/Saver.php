@@ -36,6 +36,11 @@ class Saver extends Authenticatable
         return $this->hasMany(Transaction::class, 'saver_id');
     }
 
+    public function withdrawalRequests()
+    {
+        return $this->hasMany(WithdrawalRequest::class, 'saver_id');
+    }
+
     public function getNameAttribute()
     {
         return $this->student_name;

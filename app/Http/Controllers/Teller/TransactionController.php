@@ -167,6 +167,10 @@ class TransactionController extends Controller
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->first();
                 $successMessage = 'Setoran tunai berhasil. Saldo dan jurnal telah diupdate secara real-time!';
 
+                if ($saver && $saver->status === 'blocked') {
+                    throw new \Exception('Transaksi Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Transaksi setoran tidak dapat diproses.');
+                }
+
                 if (!$saver) {
                     // Try finding by student_id in members
                     $member = \App\Models\Member::where('student_id', $request->account_number)->first();
@@ -371,42 +375,94 @@ class TransactionController extends Controller
 
         try {
             $saver = null;
-            DB::transaction(function () use ($request, &$saver) {
+            $withdrawalReq = null;
+            DB::transaction(function () use ($request, &$saver, &$withdrawalReq) {
                 // 1. Ambil data dengan lock dalam transaksi
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
-                // 2. Cek PIN
+                // 2. Cek apakah rekening diblokir
+                if ($saver->status === 'blocked') {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'account_number' => 'Penarikan Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Penarikan dana tidak dapat diproses.'
+                    ]);
+                }
+
+                // 3. Cek PIN
                 if (!Hash::check($request->security_pin, $saver->security_pin)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'security_pin' => 'PIN keamanan yang dimasukkan salah.'
                     ]);
                 }
 
-                // 3. Cek sisa saldo
+                // 4. Cek sisa saldo mengendap minimal (default Rp 10.000)
                 $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
                 $batasMinSaldo = $settingMinSaldo ? (int)$settingMinSaldo->value : 10000;
+                $maxBisaDitarik = max(0, (float)$saver->saldo - $batasMinSaldo);
 
                 if (($saver->saldo - $request->amount) < $batasMinSaldo) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'amount' => 'Penarikan ditolak! Sisa saldo setelah penarikan minimal Rp ' . number_format($batasMinSaldo,0,',','.')
+                        'amount' => 'Penarikan ditolak! Saldo wajib mengendap minimal Rp ' . number_format($batasMinSaldo, 0, ',', '.') . '. Maksimal saldo yang dapat ditarik dari rekening saat ini adalah Rp ' . number_format($maxBisaDitarik, 0, ',', '.') . '.'
                     ]);
                 }
 
-                // 4. Simpan Transaksi 
+                // 5. Aturan Penarikan Tunai: Reguler (Maks Rp 1.000.000/hari) vs Janjian Dana Besar (> Rp 1.000.000)
+                if ($request->amount > 1000000) {
+                    // Penarikan di atas 1 Jt: WAJIB memiliki Janjian Penarikan Dana Besar yang disetujui (minimal H-1)
+                    $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                        ->where('status', 'approved')
+                        ->whereDate('scheduled_date', '<=', today())
+                        ->where('amount', '>=', $request->amount)
+                        ->latest()
+                        ->first();
+
+                    if (!$withdrawalReq) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'amount' => 'Penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1 dan telah disetujui oleh Teller dan Administrator. Tidak ditemukan pengajuan janjian yang telah disetujui untuk rekening ini pada hari ini.'
+                        ]);
+                    }
+                } else {
+                    // Penarikan reguler (<= 1 Jt): Batas maksimal akumulasi Rp 1.000.000 per nasabah per hari
+                    $maxRegulerPerHari = 1000000;
+                    $todayWithdrawn = Transaction::where('saver_id', $saver->id)
+                        ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+                        ->whereDate('created_at', today())
+                        ->where('status', '!=', 'Failed')
+                        ->sum('amount');
+
+                    if (($todayWithdrawn + $request->amount) > $maxRegulerPerHari) {
+                        $sisaKuota = max(0, $maxRegulerPerHari - $todayWithdrawn);
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'amount' => 'Penarikan reguler ditolak! Maksimal penarikan tunai reguler adalah Rp ' . number_format($maxRegulerPerHari, 0, ',', '.') . ' per hari. Hari ini nasabah telah menarik Rp ' . number_format($todayWithdrawn, 0, ',', '.') . ' (Sisa kuota reguler hari ini: Rp ' . number_format($sisaKuota, 0, ',', '.') . '). Untuk penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1.'
+                        ]);
+                    }
+                }
+
+                // 6. Simpan Transaksi Penarikan
                 $transaction = Transaction::create([
-                    'saver_id'      => $saver->id,
+                    'saver_id'         => $saver->id,
                     'user_id'          => auth()->id(),
                     'transaction_date' => now(),
                     'transaction_type' => 'Withdrawal',
                     'amount'           => $request->amount,
                     'status'           => 'Approved',
+                    'notes'            => $withdrawalReq ? ("Pencairan Janjian Penarikan Dana Besar (" . $withdrawalReq->request_code . ")") : "Penarikan Tunai Reguler",
                 ]);
 
-                // 5. Potong saldo nasabah (Seketika)
+                // 7. Jika menggunakan Janjian Penarikan Dana Besar, tandai sebagai Selesai / Completed
+                if ($withdrawalReq) {
+                    $withdrawalReq->update([
+                        'status'         => 'completed',
+                        'transaction_id' => $transaction->id,
+                        'disbursed_by'   => auth()->id(),
+                        'disbursed_at'   => now(),
+                    ]);
+                }
+
+                // 8. Potong saldo nasabah (Seketika)
                 $saver->saldo -= $request->amount;
                 $saver->save();
 
-                // 6. Jurnal Double-Entry (Seketika)
+                // 9. Jurnal Double-Entry (Seketika)
                 DB::table('accounting_journals')->insert([
                     [
                         'transaction_id' => $transaction->id,
@@ -429,7 +485,7 @@ class TransactionController extends Controller
                 // Flash receipt data for immediate printing
                 session()->flash('receipt', [
                     'id'             => $transaction->id,
-                    'type'           => 'Penarikan Tunai (Withdrawal)',
+                    'type'           => $withdrawalReq ? 'Penarikan Dana Besar (Janjian H-1)' : 'Penarikan Tunai (Withdrawal)',
                     'account_number' => $saver->account_number,
                     'student_name'   => $saver->student_name,
                     'amount'         => $request->amount,
@@ -440,10 +496,14 @@ class TransactionController extends Controller
             });
 
             // Record Audit Log Penarikan Tunai
+            $auditDesc = $withdrawalReq 
+                ? "Pencairan Janjian Penarikan Dana Besar ({$withdrawalReq->request_code}) sebesar Rp " . number_format($request->amount, 0, ',', '.') . " pada rekening {$saver->account_number} ({$saver->student_name}) berhasil."
+                : "Penarikan tunai reguler sebesar Rp " . number_format($request->amount, 0, ',', '.') . " pada rekening {$saver->account_number} ({$saver->student_name}) berhasil.";
+
             \App\Models\AuditLog::record(
                 'PENARIKAN_TUNAI',
                 'Penarikan Tunai',
-                "Penarikan tunai sebesar Rp " . number_format($request->amount, 0, ',', '.') . " pada rekening {$saver->account_number} ({$saver->student_name}) berhasil.",
+                $auditDesc,
                 auth()->id(),
                 auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
             );
@@ -525,23 +585,55 @@ class TransactionController extends Controller
             ->first();
 
         if ($saver) {
+            $isBlocked = ($saver->status === 'blocked');
+            $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
+            $batasMinSaldo = $settingMinSaldo ? (int)$settingMinSaldo->value : 10000;
+            $maxBisaDitarik = max(0, (float)$saver->saldo - $batasMinSaldo);
+
+            $todayWithdrawn = (float) Transaction::where('saver_id', $saver->id)
+                ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+                ->whereDate('created_at', today())
+                ->where('status', '!=', 'Failed')
+                ->sum('amount');
+            $remainingDailyQuota = max(0, 1000000 - $todayWithdrawn);
+
+            $approvedRequest = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                ->where('status', 'approved')
+                ->whereDate('scheduled_date', '<=', today())
+                ->latest()
+                ->first();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Data nasabah berhasil ditemukan',
+                'message' => $isBlocked ? 'PERINGATAN: Rekening nasabah ini sedang DIBLOKIR oleh Administrator!' : 'Data nasabah berhasil ditemukan',
                 'data'    => [
-                    'id'              => $saver->id,
-                    'account_number'  => $saver->account_number,
-                    'student_id'      => $saver->student_id,
-                    'nis'             => $saver->student_id,
-                    'student_name'    => $saver->student_name,
-                    'name'            => $saver->student_name,
-                    'grade_class'     => $saver->grade_class ?? '-',
-                    'saldo'           => (float) $saver->saldo,
-                    'balance'         => (float) $saver->saldo,
-                    'current_balance' => (float) $saver->saldo,
-                    'formatted_saldo' => 'Rp ' . number_format($saver->saldo, 0, ',', '.'),
-                    'is_member_only'  => false,
-                    'status'          => 'active'
+                    'id'                     => $saver->id,
+                    'account_number'         => $saver->account_number,
+                    'student_id'             => $saver->student_id,
+                    'nis'                    => $saver->student_id,
+                    'student_name'           => $saver->student_name,
+                    'name'                   => $saver->student_name,
+                    'grade_class'            => $saver->grade_class ?? '-',
+                    'saldo'                  => (float) $saver->saldo,
+                    'balance'                => (float) $saver->saldo,
+                    'current_balance'        => (float) $saver->saldo,
+                    'formatted_saldo'        => 'Rp ' . number_format($saver->saldo, 0, ',', '.'),
+                    'is_member_only'         => false,
+                    'status'                 => $saver->status ?? 'active',
+                    'is_blocked'             => $isBlocked,
+                    'min_retained_balance'   => $batasMinSaldo,
+                    'max_withdrawable'       => $maxBisaDitarik,
+                    'formatted_max_withdraw' => 'Rp ' . number_format($maxBisaDitarik, 0, ',', '.'),
+                    'today_withdrawn'        => $todayWithdrawn,
+                    'remaining_daily_quota'  => $remainingDailyQuota,
+                    'approved_request'       => $approvedRequest ? [
+                        'id'             => $approvedRequest->id,
+                        'request_code'   => $approvedRequest->request_code,
+                        'amount'         => (float) $approvedRequest->amount,
+                        'formatted_amount'=> 'Rp ' . number_format($approvedRequest->amount, 0, ',', '.'),
+                        'purpose'        => $approvedRequest->purpose,
+                        'scheduled_date' => $approvedRequest->scheduled_date->format('d/m/Y'),
+                    ] : null,
                 ]
             ], 200);
         }

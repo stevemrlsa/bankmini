@@ -24,6 +24,7 @@ use App\Http\Controllers\SaverPortalController;
 use App\Http\Controllers\TellerShiftController;
 use App\Http\Controllers\Admin\AdminShiftController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\WithdrawalRequestController;
 
 // ========================================================
 // 1. ROUTE PUBLIK & AUTENTIKASI UTAMA
@@ -154,6 +155,21 @@ Route::prefix('admin')->middleware(['auth', 'role:Administrator,Admin'])->group(
     Route::post('/customer-data/{id}/reset-password', [AdminCustomerController::class, 'resetPassword'])->name('admin.customer-data.reset-password');
     Route::delete('/savers/{id}', [AdminCustomerController::class, 'destroy'])->name('admin.savers.destroy');
 
+    // Blokir & Buka Blokir Rekening Nasabah Siswa
+    Route::post('/customers/{id}/block', [AdminCustomerController::class, 'blockAccount'])->name('admin.savers.block');
+    Route::post('/customers/{id}/unblock', [AdminCustomerController::class, 'unblockAccount'])->name('admin.savers.unblock');
+    Route::post('/savers/{id}/block', [AdminCustomerController::class, 'blockAccount']);
+    Route::post('/savers/{id}/unblock', [AdminCustomerController::class, 'unblockAccount']);
+
+    // Janjian Penarikan Dana Besar (> Rp 1.000.000) - Otorisasi Administrator
+    Route::get('/withdrawal-requests', [WithdrawalRequestController::class, 'index'])->name('admin.withdrawal-requests.index');
+    Route::get('/withdrawal-requests/create', [WithdrawalRequestController::class, 'create'])->name('admin.withdrawal-requests.create');
+    Route::post('/withdrawal-requests', [WithdrawalRequestController::class, 'store'])->name('admin.withdrawal-requests.store');
+    Route::post('/withdrawal-requests/{id}/approve-admin', [WithdrawalRequestController::class, 'approveAdmin'])->name('admin.withdrawal-requests.approve-admin');
+    Route::post('/withdrawal-requests/{id}/approve-teller', [WithdrawalRequestController::class, 'approveTeller'])->name('admin.withdrawal-requests.approve-teller');
+    Route::post('/withdrawal-requests/{id}/reject', [WithdrawalRequestController::class, 'reject'])->name('admin.withdrawal-requests.reject');
+    Route::post('/withdrawal-requests/{id}/cancel', [WithdrawalRequestController::class, 'cancel'])->name('admin.withdrawal-requests.cancel');
+
     // Approval Laporan Penutupan Kas & Shift Laci Teller (Vault Transfer)
     Route::get('/approval', [AdminApprovalController::class, 'indexApproval'])->name('admin.approval.index');
     Route::get('/approval/kas/{id}/pdf', [AdminApprovalController::class, 'downloadPdf'])->name('admin.approval.pdf');
@@ -239,6 +255,15 @@ Route::prefix('teller')->middleware(['auth', 'role:Teller'])->group(function () 
         // One-Stop Aktivasi Nasabah Baru
         Route::get('/activations', [TellerActivationController::class, 'index'])->name('teller.activations.index');
         Route::post('/activations/{id}', [TellerActivationController::class, 'activate'])->name('teller.activations.activate');
+
+        // Janjian Penarikan Dana Besar (> Rp 1.000.000) - Loket Teller
+        Route::get('/withdrawal-requests', [WithdrawalRequestController::class, 'index'])->name('teller.withdrawal-requests.index');
+        Route::get('/withdrawal-requests/create', [WithdrawalRequestController::class, 'create'])->name('teller.withdrawal-requests.create');
+        Route::post('/withdrawal-requests', [WithdrawalRequestController::class, 'store'])->name('teller.withdrawal-requests.store');
+        Route::post('/withdrawal-requests/{id}/approve-admin', [WithdrawalRequestController::class, 'approveAdmin'])->name('teller.withdrawal-requests.approve-admin');
+        Route::post('/withdrawal-requests/{id}/approve-teller', [WithdrawalRequestController::class, 'approveTeller'])->name('teller.withdrawal-requests.approve-teller');
+        Route::post('/withdrawal-requests/{id}/reject', [WithdrawalRequestController::class, 'reject'])->name('teller.withdrawal-requests.reject');
+        Route::post('/withdrawal-requests/{id}/cancel', [WithdrawalRequestController::class, 'cancel'])->name('teller.withdrawal-requests.cancel');
     });
 
 });

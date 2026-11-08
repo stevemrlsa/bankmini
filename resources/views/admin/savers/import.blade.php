@@ -140,6 +140,26 @@
         </div>
     </div>
 
+    @if(!($canImport ?? true))
+        <div class="alert alert-warning border-0 rounded-4 p-4 mb-4 shadow-sm" style="background: #FFFBEB; border-left: 6px solid #F59E0B !important;">
+            <div class="d-flex align-items-start gap-3">
+                <div class="rounded-circle p-2 bg-warning text-dark fs-4 d-flex align-items-center justify-content-center flex-shrink-0" style="width: 48px; height: 48px;">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="fw-bold text-dark mb-1">Import Siswa Baru Terkunci (Wajib Kenaikan Kelas Dahulu)</h5>
+                    <p class="text-secondary small mb-3" style="line-height: 1.6;">
+                        Sistem mendeteksi data siswa yang belum melalui proses <strong>Kenaikan Kelas Massal</strong> untuk Tahun Ajaran {{ $currentYear ?? date('Y') }}.<br>
+                        Sebelum mengimpor data rombel siswa baru, seluruh siswa lama wajib dinaikkan kelasnya terlebih dahulu (X &rarr; XI, XI &rarr; XII, XII &rarr; Lulus/Alumni) agar data kelas dan saldo tabungan tidak saling bertabrakan.
+                    </p>
+                    <a href="{{ route('admin.savers.index') }}" class="btn btn-warning text-dark fw-bold px-4 py-2 rounded-3 shadow-sm">
+                        <i class="bi bi-mortarboard-fill me-1"></i> Buka Data Nasabah &amp; Lakukan Naik Kelas Massal
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="row g-4">
         <!-- Kolom Kiri: Formulir Upload -->
         <div class="col-12 col-lg-7">
@@ -155,15 +175,21 @@
                     @csrf
 
                     <!-- Area Dropzone -->
-                    <div class="dropzone-box mb-4" id="dropzoneArea" onclick="document.getElementById('excelFileInput').click();">
+                    <div class="dropzone-box mb-4 {{ !($canImport ?? true) ? 'opacity-50' : '' }}" id="dropzoneArea" @if($canImport ?? true) onclick="document.getElementById('excelFileInput').click();" @endif style="{{ !($canImport ?? true) ? 'cursor: not-allowed; background: #f1f5f9;' : '' }}">
                         <div class="dropzone-icon">
-                            <i class="bi bi-file-earmark-spreadsheet-fill"></i>
+                            <i class="bi {{ !($canImport ?? true) ? 'bi-lock-fill text-secondary' : 'bi-file-earmark-spreadsheet-fill' }}"></i>
                         </div>
-                        <h6 class="fw-bold text-dark mb-1" id="fileLabel">Pilih File .xlsx atau Tarik ke Sini</h6>
-                        <p class="text-muted small mb-2" id="fileSubLabel">Mendukung format Microsoft Excel (.xlsx, .xls) atau CSV (Maksimal 10MB)</p>
-                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-4 fw-semibold mt-2">
-                            Pilih Dokumen
-                        </button>
+                        <h6 class="fw-bold text-dark mb-1" id="fileLabel">
+                            {{ !($canImport ?? true) ? 'Import Terkunci — Harap Naikkan Kelas Siswa Dahulu' : 'Pilih File .xlsx atau Tarik ke Sini' }}
+                        </h6>
+                        <p class="text-muted small mb-2" id="fileSubLabel">
+                            {{ !($canImport ?? true) ? 'Tombol unggah akan aktif otomatis setelah kenaikan kelas massal diproses.' : 'Mendukung format Microsoft Excel (.xlsx, .xls) atau CSV (Maksimal 10MB)' }}
+                        </p>
+                        @if($canImport ?? true)
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-4 fw-semibold mt-2">
+                                Pilih Dokumen
+                            </button>
+                        @endif
                         <input
                             type="file"
                             id="excelFileInput"
@@ -171,6 +197,7 @@
                             class="d-none"
                             accept=".xlsx, .xls, .csv"
                             required
+                            {{ !($canImport ?? true) ? 'disabled' : '' }}
                         >
                     </div>
 
@@ -195,7 +222,7 @@
                         <a href="{{ route('admin.members.index') }}" class="btn btn-light px-4 py-2 rounded-3 text-muted fw-semibold" style="font-size:0.9rem;">
                             Batal
                         </a>
-                        <button type="submit" class="btn-navy" id="btnSubmitImport">
+                        <button type="submit" class="btn-navy" id="btnSubmitImport" {{ !($canImport ?? true) ? 'disabled' : '' }}>
                             <i class="bi bi-check-circle-fill me-1"></i> Simpan Data Siswa
                         </button>
                     </div>

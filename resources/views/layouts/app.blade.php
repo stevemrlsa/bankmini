@@ -1008,6 +1008,9 @@
                         @endif
 
                         <span class="sidebar-section-label">Laporan & Audit</span>
+                        <a href="{{ route('admin.withdrawal-requests.index') }}" class="nav-link {{ request()->routeIs('admin.withdrawal-requests.*') ? 'active' : '' }}">
+                            <i class="bi bi-calendar-check-fill"></i> Janjian Penarikan (> 1 Jt)
+                        </a>
                         <a href="{{ route('admin.approval.index') }}" class="nav-link {{ request()->routeIs('admin.approval.*') || request()->routeIs('admin.shifts.*') ? 'active' : '' }}">
                             <i class="bi bi-shield-check"></i> Approval Kas Teller
                         </a>
@@ -1041,6 +1044,9 @@
                         </a>
                         <a href="{{ route('teller.penarikan.create') }}" class="nav-link {{ request()->routeIs('teller.penarikan.*') ? 'active' : '' }}">
                             <i class="bi bi-arrow-up-circle-fill"></i> Penarikan Tunai
+                        </a>
+                        <a href="{{ route('teller.withdrawal-requests.index') }}" class="nav-link {{ request()->routeIs('teller.withdrawal-requests.*') ? 'active' : '' }}">
+                            <i class="bi bi-calendar-check-fill"></i> Janjian Penarikan (> 1 Jt)
                         </a>
 
                         <span class="sidebar-section-label">Laporan</span>

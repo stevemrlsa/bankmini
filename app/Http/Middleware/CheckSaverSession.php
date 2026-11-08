@@ -42,6 +42,15 @@ class CheckSaverSession
                              ->with('error', 'Silakan login terlebih dahulu untuk mengakses portal tabungan digital.');
         }
 
+        // 3. Cek apakah rekening nasabah diblokir
+        $currentSaver = Saver::find(Session::get('saver_id'));
+        if ($currentSaver && $currentSaver->status === 'blocked') {
+            Session::forget(['saver_id', 'account_number']);
+            Auth::logout();
+            return redirect()->route('login')
+                             ->with('error', 'Akses Ditolak: Rekening nasabah Anda sedang DIBLOKIR oleh Administrator. Silakan hubungi petugas loket Bank Mini.');
+        }
+
         return $next($request);
     }
 }
