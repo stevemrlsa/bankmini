@@ -120,28 +120,43 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get()
                 ->map(function ($tx) {
-                    $rawType = strtolower($tx->transaction_type ?? $tx->type ?? '');
-                    $typeLabel = 'Transaksi';
+                    $rawType = strtolower(trim((string) ($tx->transaction_type ?? $tx->type ?? '')));
+                    $isCredit = in_array($rawType, ['deposit', 'setor', 'setoran', 'credit']) || str_contains($rawType, 'setor') || str_contains($rawType, 'deposit');
+                    $typeLabel = $isCredit ? 'Setoran Tunai' : 'Penarikan';
 
-                    if (in_array($rawType, ['deposit', 'setor', 'setoran'])) {
-                        $typeLabel = 'Setoran Tunai';
-                    } elseif (in_array($rawType, ['withdrawal', 'tarik', 'penarikan'])) {
-                        $typeLabel = 'Penarikan';
-                    } elseif (in_array($rawType, ['vault_transfer', 'transfer'])) {
+                    if (!$isCredit && in_array($rawType, ['vault_transfer', 'transfer'])) {
                         $typeLabel = 'Pemindahan Kas';
                     }
 
-                    $txDate = $tx->transaction_date 
-                        ? Carbon::parse($tx->transaction_date)->format('Y-m-d H:i:s')
-                        : ($tx->created_at ? $tx->created_at->format('Y-m-d H:i:s') : null);
+                    $dateCarbon = $tx->transaction_date 
+                        ? Carbon::parse($tx->transaction_date)
+                        : ($tx->created_at ? Carbon::parse($tx->created_at) : now());
+                    $dateWib = $dateCarbon->timezone('Asia/Jakarta');
+
+                    $defaultTitle = $isCredit ? 'Setoran Tabungan' : 'Penarikan Saldo';
+                    $description = $tx->description ?: ($tx->notes ?: $defaultTitle);
+
+                    if ($isCredit && (str_contains(strtolower($description), 'penarikan') || str_contains(strtolower($description), 'tarik'))) {
+                        $description = 'Setoran Tabungan';
+                    } elseif (!$isCredit && (str_contains(strtolower($description), 'setoran') || str_contains(strtolower($description), 'setor'))) {
+                        $description = 'Penarikan Saldo';
+                    }
 
                     return [
                         'id'               => $tx->id,
-                        'transaction_type' => $tx->transaction_type,
-                        'type'             => $tx->transaction_type,
+                        'transaction_type' => $isCredit ? 'Deposit' : 'Withdrawal',
+                        'type'             => $isCredit ? 'deposit' : 'withdrawal',
+                        'jenis'            => $isCredit ? 'setor' : 'tarik',
                         'type_label'       => $typeLabel,
+                        'is_credit'        => $isCredit,
+                        'description'      => $description,
+                        'keterangan'       => $description,
                         'amount'           => (float) $tx->amount,
-                        'transaction_date' => $txDate,
+                        'jumlah'           => (float) $tx->amount,
+                        'transaction_date' => $dateWib->format('Y-m-d H:i:s'),
+                        'date'             => $dateWib->format('Y-m-d H:i:s'),
+                        'tanggal'          => $dateWib->format('d M Y, H:i'),
+                        'tanggal_group'    => $dateWib->format('d M Y'),
                         'status'           => $tx->status ?? 'Approved',
                     ];
                 });

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Saver;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class SaverApiController extends Controller
 {
@@ -148,28 +150,47 @@ class SaverApiController extends Controller
             ], 403);
         }
 
-        // Ambil transaksi nasabah diurutkan dari yang terbaru
+        // Ambil transaksi nasabah diurutkan dari yang terbaru (mengutamakan tanggal transaksi)
         $transactions = $saver->transactions()
-            ->latest()
+            ->orderBy(DB::raw('COALESCE(transaction_date, created_at)'), 'desc')
             ->limit(100)
             ->get();
 
         $formatted = $transactions->map(function ($tx) {
-            $typeStr = strtolower($tx->type ?? $tx->jenis ?? '');
-            $isSetor = ($typeStr === 'deposit' || $typeStr === 'setor' || $typeStr === 'setoran');
+            $rawType = strtolower(trim((string) ($tx->transaction_type ?? $tx->type ?? $tx->jenis ?? '')));
+            $isSetor = in_array($rawType, ['deposit', 'setor', 'setoran', 'credit']) || str_contains($rawType, 'setor') || str_contains($rawType, 'deposit');
+
+            $dateCarbon = $tx->transaction_date 
+                ? Carbon::parse($tx->transaction_date) 
+                : ($tx->created_at ? Carbon::parse($tx->created_at) : now());
+            $dateWib = $dateCarbon->timezone('Asia/Jakarta');
+
+            $defaultTitle = $isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo';
+            $description = $tx->description ?: ($tx->notes ?: $defaultTitle);
+
+            // Validasi konsistensi deskripsi terhadap tipe transaksi
+            if ($isSetor && (str_contains(strtolower($description), 'penarikan') || str_contains(strtolower($description), 'tarik'))) {
+                $description = 'Setoran Tabungan';
+            } elseif (!$isSetor && (str_contains(strtolower($description), 'setoran') || str_contains(strtolower($description), 'setor'))) {
+                $description = 'Penarikan Saldo';
+            }
 
             return [
-                'id'          => $tx->id,
-                'type'        => $isSetor ? 'setor' : 'tarik',
-                'jenis'       => $isSetor ? 'setor' : 'tarik',
-                'amount'      => (float) $tx->amount,
-                'jumlah'      => (float) $tx->amount,
-                'date'        => $tx->created_at ? $tx->created_at->format('Y-m-d H:i:s') : null,
-                'tanggal'     => $tx->created_at ? $tx->created_at->format('d M Y, H:i') : null,
-                'tanggal_group' => $tx->created_at ? $tx->created_at->format('d M Y') : 'MUTASI TERBARU',
-                'description' => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo'),
-                'keterangan'  => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo'),
-                'status'      => $tx->status ?? 'success',
+                'id'               => $tx->id,
+                'transaction_type' => $isSetor ? 'Deposit' : 'Withdrawal',
+                'type'             => $isSetor ? 'deposit' : 'withdrawal',
+                'jenis'            => $isSetor ? 'setor' : 'tarik',
+                'type_label'       => $isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo',
+                'is_credit'        => $isSetor,
+                'amount'           => (float) $tx->amount,
+                'jumlah'           => (float) $tx->amount,
+                'date'             => $dateWib->format('Y-m-d H:i:s'),
+                'transaction_date' => $dateWib->format('Y-m-d H:i:s'),
+                'tanggal'          => $dateWib->format('d M Y, H:i'),
+                'tanggal_group'    => $dateWib->format('d M Y'),
+                'description'      => $description,
+                'keterangan'       => $description,
+                'status'           => $tx->status ?? 'Approved',
             ];
         });
 
