@@ -333,5 +333,212 @@ class MobileSecurityApiController extends Controller
             'message' => 'PIN transaksi 6 digit Anda berhasil diperbarui!',
         ], 200);
     }
+
+    /**
+     * Permintaan OTP untuk Ubah Email Akun Nasabah (Wajib Kata Sandi Saat Ini).
+     */
+    public function requestChangeEmailOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'new_email' => 'required|email',
+            'password'  => 'required|string',
+        ], [
+            'new_email.required' => 'Alamat email baru wajib diisi.',
+            'new_email.email'    => 'Format alamat email baru tidak valid.',
+            'password.required'  => 'Kata sandi saat ini wajib diisi.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // Cari user yang terotentikasi
+        $targetSaver = null;
+        $user = $request->user();
+        if (!$user && $request->bearerToken() && class_exists(\Laravel\Sanctum\PersonalAccessToken::class)) {
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($request->bearerToken());
+            if ($pat) {
+                $user = $pat->tokenable;
+            }
+        }
+
+        if ($user) {
+            if ($user instanceof Saver) {
+                $targetSaver = $user;
+            } else {
+                $targetSaver = Saver::where('student_id', $user->student_id ?? '')
+                    ->orWhere('username', $user->username ?? '')
+                    ->orWhere('email', $user->email ?? '')
+                    ->orWhere('account_number', $user->account_number ?? '')
+                    ->first();
+            }
+        }
+
+        if (!$targetSaver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi login tidak valid. Silakan masuk kembali.',
+            ], 401);
+        }
+
+        // Validasi kata sandi saat ini
+        $passwordValid = false;
+        if (!empty($targetSaver->password) && Hash::check($request->password, $targetSaver->password)) {
+            $passwordValid = true;
+        }
+
+        // Fallback: periksa password di tabel User terkait jika saver->password belum cocok
+        if (!$passwordValid) {
+            $linkedUser = User::where('username', $targetSaver->username)
+                ->orWhere('student_id', $targetSaver->student_id)
+                ->first();
+            if ($linkedUser && !empty($linkedUser->password) && Hash::check($request->password, $linkedUser->password)) {
+                $passwordValid = true;
+            }
+        }
+
+        // Fallback: jika belum pernah set password (misal akun baru), cek PIN transaksi
+        if (!$passwordValid && !empty($targetSaver->security_pin) && Hash::check($request->password, $targetSaver->security_pin)) {
+            $passwordValid = true;
+        }
+
+        if (!$passwordValid) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kata sandi saat ini salah. Pastikan kata sandi yang Anda masukkan benar.',
+            ], 422);
+        }
+
+        $newEmail = strtolower(trim($request->new_email));
+
+        // Cek apakah email baru sama dengan email lama
+        if (strtolower(trim($targetSaver->email ?? '')) === $newEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alamat email baru tidak boleh sama dengan email akun saat ini.',
+            ], 422);
+        }
+
+        // Generate OTP 6 digit
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $cacheKey = 'mobile_change_email_otp_' . $targetSaver->id;
+
+        // Simpan ke cache selama 10 menit
+        cache()->put($cacheKey, [
+            'otp'        => $otp,
+            'saver_id'   => $targetSaver->id,
+            'new_email'  => $newEmail,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ], now()->addMinutes(10));
+
+        // Kirim email OTP ke alamat email BARU
+        $emailSent = false;
+        try {
+            Mail::to($newEmail)->send(new SendOtpMail($otp, $targetSaver->student_name ?? 'Nasabah', 'Verifikasi Ganti Email'));
+            $emailSent = true;
+        } catch (\Throwable $e) {
+            Log::warning('OTP Ganti Email gagal dikirim: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success'    => true,
+            'message'    => 'Kode OTP verifikasi telah dikirim ke ' . $newEmail . '. Silakan periksa kotak masuk email Anda.',
+            'new_email'  => $newEmail,
+            'dev_otp'    => config('app.debug') ? $otp : null,
+            'expires_in' => 600,
+        ], 200);
+    }
+
+    /**
+     * Verifikasi OTP dan perbarui email akun nasabah.
+     */
+    public function verifyChangeEmailOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'otp' => 'required|digits:6',
+        ], [
+            'otp.required' => 'Kode OTP verifikasi wajib diisi.',
+            'otp.digits'   => 'Kode OTP harus berupa 6 digit angka.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $targetSaver = null;
+        $user = $request->user();
+        if (!$user && $request->bearerToken() && class_exists(\Laravel\Sanctum\PersonalAccessToken::class)) {
+            $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($request->bearerToken());
+            if ($pat) {
+                $user = $pat->tokenable;
+            }
+        }
+
+        if ($user) {
+            if ($user instanceof Saver) {
+                $targetSaver = $user;
+            } else {
+                $targetSaver = Saver::where('student_id', $user->student_id ?? '')
+                    ->orWhere('username', $user->username ?? '')
+                    ->orWhere('email', $user->email ?? '')
+                    ->orWhere('account_number', $user->account_number ?? '')
+                    ->first();
+            }
+        }
+
+        if (!$targetSaver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi login tidak valid. Silakan masuk kembali.',
+            ], 401);
+        }
+
+        $cacheKey = 'mobile_change_email_otp_' . $targetSaver->id;
+        $cached = cache()->get($cacheKey);
+
+        if (!$cached || !isset($cached['otp'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi verifikasi OTP telah kedaluwarsa atau belum diminta. Silakan lakukan permintaan OTP ulang.',
+            ], 400);
+        }
+
+        if ($cached['otp'] !== $request->otp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode OTP salah. Silakan periksa kembali email Anda.',
+            ], 400);
+        }
+
+        $newEmail = $cached['new_email'];
+
+        // Perbarui email di tabel savers
+        $targetSaver->email = $newEmail;
+        $targetSaver->save();
+
+        // Sinkronisasi dengan tabel users jika ada
+        User::where('username', $targetSaver->username)
+            ->orWhere('student_id', $targetSaver->student_id)
+            ->update(['email' => $newEmail]);
+
+        // Hapus cache OTP terpakai
+        cache()->forget($cacheKey);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email akun berhasil diubah dan terverifikasi menjadi ' . $newEmail,
+            'data'    => [
+                'email' => $newEmail,
+            ],
+        ], 200);
+    }
 }
 

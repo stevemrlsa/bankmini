@@ -22,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Pastikan timezone dan locale aplikasi selalu selaras dengan Waktu Indonesia Barat (WIB)
+        date_default_timezone_set(config('app.timezone', 'Asia/Jakarta'));
+        \Carbon\Carbon::setLocale(config('app.locale', 'id'));
+
         // Bagikan data notifikasi sistem secara global ke layout utama
         View::composer('layouts.app', function ($view) {
             if (Auth::check()) {
