@@ -145,6 +145,14 @@ class DailyReportController extends Controller
             'status'                   => 'pending',
         ]);
 
+        \App\Models\AuditLog::record(
+            'TUTUP_SHIFT_KAS',
+            'Rekonsiliasi Kas',
+            'Mengirim laporan penutupan kas laci dengan uang fisik Rp ' . number_format($request->physical_cash, 0, ',', '.') . ' (Sistem: Rp ' . number_format($targetSaldo, 0, ',', '.') . ', Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')',
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+        );
+
         return redirect()->route('teller.dashboard')
             ->with('success', 'Laporan penutupan kas berhasil dikirim ke Administrator.');
     }

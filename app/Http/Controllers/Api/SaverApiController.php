@@ -5,9 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Saver;
-use App\Models\User;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class SaverApiController extends Controller
@@ -75,13 +72,6 @@ class SaverApiController extends Controller
         $studentName = $saver->student_name ?? $saver->nama ?? 'Siswa Bank Mini';
         $gradeClass = $saver->grade_class ?? $saver->kelas ?? 'Siswa';
 
-        $email = $saver->email;
-        if (empty($email)) {
-            $email = User::where('username', $saver->username)
-                ->orWhere('student_id', $saver->student_id)
-                ->value('email');
-        }
-
         return response()->json([
             'success' => true,
             'message' => 'Data profil berhasil diambil',
@@ -96,9 +86,6 @@ class SaverApiController extends Controller
                 'student_name'   => $studentName,
                 'kelas'          => $gradeClass,
                 'grade_class'    => $gradeClass,
-                'email'          => $email ?? '',
-                'username'       => $saver->username ?? $saver->student_id,
-                'whatsapp_number'=> $saver->whatsapp_number ?? '',
                 'saldo'          => (float) $saver->saldo,
                 'created_at'     => $saver->created_at,
             ]
@@ -114,34 +101,26 @@ class SaverApiController extends Controller
 
         // Ambil transaksi nasabah diurutkan dari yang terbaru
         $transactions = $saver->transactions()
-            ->orderBy(DB::raw('COALESCE(transaction_date, created_at)'), 'desc')
+            ->latest()
             ->limit(100)
             ->get();
 
         $formatted = $transactions->map(function ($tx) {
-            $rawType = strtolower($tx->transaction_type ?? $tx->type ?? $tx->jenis ?? '');
-            $isSetor = in_array($rawType, ['deposit', 'setor', 'setoran', 'credit']);
-
-            // Parse waktu dan pastikan zona waktu Asia/Jakarta (WIB)
-            $rawDate = $tx->transaction_date ?? $tx->created_at;
-            $carbonDate = $rawDate ? Carbon::parse($rawDate)->setTimezone('Asia/Jakarta') : now('Asia/Jakarta');
+            $typeStr = strtolower($tx->type ?? $tx->jenis ?? '');
+            $isSetor = ($typeStr === 'deposit' || $typeStr === 'setor' || $typeStr === 'setoran');
 
             return [
-                'id'               => $tx->id,
-                'type'             => $isSetor ? 'setor' : 'tarik',
-                'jenis'            => $isSetor ? 'setor' : 'tarik',
-                'transaction_type' => $tx->transaction_type ?? ($isSetor ? 'Deposit' : 'Withdrawal'),
-                'type_label'       => $isSetor ? 'Setoran Tunai' : 'Penarikan Tunai',
-                'is_credit'        => $isSetor,
-                'amount'           => (float) $tx->amount,
-                'jumlah'           => (float) $tx->amount,
-                'date'             => $carbonDate->format('Y-m-d H:i:s'),
-                'transaction_date' => $carbonDate->format('Y-m-d H:i:s'),
-                'tanggal'          => $carbonDate->format('d M Y, H:i') . ' WIB',
-                'tanggal_group'    => $carbonDate->format('d M Y'),
-                'description'      => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Tunai'),
-                'keterangan'       => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Tunai'),
-                'status'           => $tx->status ?? 'Approved',
+                'id'          => $tx->id,
+                'type'        => $isSetor ? 'setor' : 'tarik',
+                'jenis'       => $isSetor ? 'setor' : 'tarik',
+                'amount'      => (float) $tx->amount,
+                'jumlah'      => (float) $tx->amount,
+                'date'        => $tx->created_at ? $tx->created_at->format('Y-m-d H:i:s') : null,
+                'tanggal'     => $tx->created_at ? $tx->created_at->format('d M Y, H:i') : null,
+                'tanggal_group' => $tx->created_at ? $tx->created_at->format('d M Y') : 'MUTASI TERBARU',
+                'description' => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo'),
+                'keterangan'  => $tx->description ?? ($isSetor ? 'Setoran Tabungan' : 'Penarikan Saldo'),
+                'status'      => $tx->status ?? 'success',
             ];
         });
 

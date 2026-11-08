@@ -83,34 +83,27 @@ class DashboardController extends Controller
                 ->get()
                 ->map(function ($tx) {
                     $rawType = strtolower($tx->transaction_type ?? $tx->type ?? '');
-                    $isDeposit = in_array($rawType, ['deposit', 'setor', 'setoran', 'credit']);
                     $typeLabel = 'Transaksi';
 
-                    if ($isDeposit) {
+                    if (in_array($rawType, ['deposit', 'setor', 'setoran'])) {
                         $typeLabel = 'Setoran Tunai';
-                    } elseif (in_array($rawType, ['withdrawal', 'tarik', 'penarikan', 'debit'])) {
-                        $typeLabel = 'Penarikan Tunai';
+                    } elseif (in_array($rawType, ['withdrawal', 'tarik', 'penarikan'])) {
+                        $typeLabel = 'Penarikan';
                     } elseif (in_array($rawType, ['vault_transfer', 'transfer'])) {
                         $typeLabel = 'Pemindahan Kas';
                     }
 
-                    $rawDate = $tx->transaction_date ?? $tx->created_at;
-                    $carbonDate = $rawDate ? Carbon::parse($rawDate)->setTimezone('Asia/Jakarta') : now('Asia/Jakarta');
+                    $txDate = $tx->transaction_date 
+                        ? Carbon::parse($tx->transaction_date)->format('Y-m-d H:i:s')
+                        : ($tx->created_at ? $tx->created_at->format('Y-m-d H:i:s') : null);
 
                     return [
                         'id'               => $tx->id,
-                        'transaction_type' => $tx->transaction_type ?? ($isDeposit ? 'Deposit' : 'Withdrawal'),
-                        'type'             => $isDeposit ? 'setor' : 'tarik',
+                        'transaction_type' => $tx->transaction_type,
+                        'type'             => $tx->transaction_type,
                         'type_label'       => $typeLabel,
-                        'is_credit'        => $isDeposit,
                         'amount'           => (float) $tx->amount,
-                        'jumlah'           => (float) $tx->amount,
-                        'transaction_date' => $carbonDate->format('Y-m-d H:i:s'),
-                        'date'             => $carbonDate->format('Y-m-d H:i:s'),
-                        'tanggal'          => $carbonDate->format('d M Y, H:i') . ' WIB',
-                        'tanggal_group'    => $carbonDate->format('d M Y'),
-                        'description'      => $tx->description ?? ($isDeposit ? 'Setoran Tabungan' : 'Penarikan Tunai'),
-                        'keterangan'       => $tx->description ?? ($isDeposit ? 'Setoran Tabungan' : 'Penarikan Tunai'),
+                        'transaction_date' => $txDate,
                         'status'           => $tx->status ?? 'Approved',
                     ];
                 });

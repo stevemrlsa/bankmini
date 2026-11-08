@@ -118,16 +118,17 @@
                     <tbody>
                         @forelse($reports as $report)
                             @php
+                                $isAutoReport = is_null($report->closing_balance_physical);
                                 $fisik = $report->closing_balance_physical ?? 0;
                                 $sistem = $report->closing_balance_system ?? 0;
                                 $diff = $fisik - $sistem;
-                                $timeStr = $report->created_at ? \Carbon\Carbon::parse($report->created_at)->format('H:i') : null;
+                                $timeStr = $report->created_at ? \Carbon\Carbon::parse($report->created_at)->timezone('Asia/Jakarta')->format('H:i') : null;
                             @endphp
                             <tr style="border-bottom: 1px solid #F1F5F9;">
                                 {{-- Tanggal & Waktu --}}
                                 <td class="px-4 py-3">
                                     <div class="fw-semibold text-dark">
-                                        {{ \Carbon\Carbon::parse($report->report_date ?? $report->created_at)->translatedFormat('d M Y') }}
+                                        {{ \Carbon\Carbon::parse($report->report_date ?? $report->created_at)->timezone('Asia/Jakarta')->translatedFormat('d M Y') }}
                                     </div>
                                     <small class="text-muted">
                                         <i class="bi bi-clock me-1"></i>{{ $timeStr ? $timeStr . ' WIB' : 'Hari ini' }}
@@ -171,15 +172,26 @@
 
                                 {{-- Kas Fisik di Laci --}}
                                 <td class="py-3">
-                                    <div class="fw-bold text-primary fs-6">
-                                        Rp {{ number_format($report->closing_balance_physical ?? 0, 0, ',', '.') }}
-                                    </div>
-                                    <small class="text-muted" style="font-size: 0.72rem;">Hitungan fisik laci</small>
+                                    @if($isAutoReport)
+                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill fw-semibold">
+                                            <i class="bi bi-robot me-1"></i>(Kosong - Input Otomatis)
+                                        </span>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Fisik belum dihitung teller</div>
+                                    @else
+                                        <div class="fw-bold text-primary fs-6">
+                                            Rp {{ number_format($report->closing_balance_physical ?? 0, 0, ',', '.') }}
+                                        </div>
+                                        <small class="text-muted" style="font-size: 0.72rem;">Hitungan fisik laci</small>
+                                    @endif
                                 </td>
 
                                 {{-- Selisih Kas --}}
                                 <td class="py-3">
-                                    @if($diff === 0)
+                                    @if($isAutoReport)
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill fw-semibold">
+                                            <i class="bi bi-dash-circle me-1"></i>Menunggu Fisik
+                                        </span>
+                                    @elseif($diff === 0)
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill fw-semibold">
                                             <i class="bi bi-check-circle me-1"></i>Rp 0 (Balance)
                                         </span>

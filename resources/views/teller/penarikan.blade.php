@@ -474,7 +474,7 @@
                             id="amount"
                             name="amount"
                             min="1000"
-                            max="500000"
+                            max="{{ (int) ($uangFisikDiLaci ?? 0) }}"
                             step="500"
                             class="field-input with-prefix @error('amount') is-invalid @enderror"
                             placeholder="0"
@@ -485,7 +485,7 @@
                     @error('amount')
                         <div style="color: #dc2626; font-size: 0.75rem; margin-top: 4px;">{{ $message }}</div>
                     @enderror
-                    <p class="field-helper">Maksimal penarikan tunai Rp 500.000 per transaksi (Setoran tunai tanpa batas). Sisa saldo mengendap minimal Rp 10.000.</p>
+                    <p class="field-helper">Maksimal penarikan tunai sesuai dengan uang fisik yang ada di laci kas saat ini (<strong>Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}</strong>). Sisa saldo mengendap minimal Rp 10.000.</p>
                 </div>
 
                 <!-- Hidden PIN Field in Form, populated from PIN modal -->
@@ -996,8 +996,9 @@ document.addEventListener('DOMContentLoaded', function () {
             amountInput.focus();
             return;
         }
-        if (parseInt(amountInput.value) > 500000) {
-            alert('Batas maksimal penarikan tunai adalah Rp 500.000 per transaksi. Setoran tunai tidak memiliki batasan.');
+        const maxDrawerCash = {{ (float) ($uangFisikDiLaci ?? 0) }};
+        if (maxDrawerCash > 0 && parseInt(amountInput.value) > maxDrawerCash) {
+            alert('Transaksi Ditolak: Nominal penarikan (Rp ' + parseInt(amountInput.value).toLocaleString('id-ID') + ') melebihi uang fisik di laci kas saat ini (Maksimal: Rp ' + maxDrawerCash.toLocaleString('id-ID') + '). Silakan lakukan Tambah Kas Laci jika perlu.');
             amountInput.focus();
             return;
         }

@@ -417,9 +417,18 @@ class TellerActivationController extends Controller
                     'account_number' => $accountNumber,
                     'student_name'   => $studentName,
                     'amount'         => $initialAmount,
-                    'date'           => now()->format('d/m/Y H:i'),
+                    'date'           => now()->timezone('Asia/Jakarta')->format('d/m/Y H:i') . ' WIB',
                 ]);
             });
+
+            // Record Audit Log
+            \App\Models\AuditLog::record(
+                'AKTIVASI_REKENING',
+                'Aktivasi Rekening',
+                "Aktivasi rekening nasabah {$studentName} (NIS: {$studentId}, Rek: {$accountNumber}) dengan setoran awal Rp " . number_format($initialAmount, 0, ',', '.') . " berhasil dilakukan.",
+                auth()->id(),
+                auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+            );
 
             return redirect()->back()->with(
                 'success',

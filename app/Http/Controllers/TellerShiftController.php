@@ -59,6 +59,14 @@ class TellerShiftController extends Controller
             'opened_at'       => now(),
         ]);
 
+        \App\Models\AuditLog::record(
+            'BUKA_LACI_SHIFT',
+            'Shift Kasir',
+            'Membuka laci kas dengan modal awal Rp ' . number_format((float) $rawOpening, 0, ',', '.'),
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+        );
+
         return redirect()->route('teller.dashboard')
             ->with('success', 'Laci kas berhasil dibuka dengan modal awal Rp ' . number_format((float) $rawOpening, 0, ',', '.') . '. Selamat bertugas!');
     }
@@ -101,6 +109,14 @@ class TellerShiftController extends Controller
             : $noteAppend;
 
         $activeShift->save();
+
+        \App\Models\AuditLog::record(
+            'TAMBAH_KAS_LACI',
+            'Shift Kasir',
+            'Menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . ($request->filled('notes') ? (' (' . $request->notes . ')') : ''),
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+        );
 
         return redirect()->back()
             ->with('success', 'Berhasil menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . '! Total modal kas laci telah diperbarui.');
@@ -237,6 +253,14 @@ class TellerShiftController extends Controller
             'notes'                    => $request->notes,
             'status'                   => 'pending',
         ]);
+
+        \App\Models\AuditLog::record(
+            'TUTUP_SHIFT_KAS',
+            'Rekonsiliasi Kas',
+            'Mengirim laporan penutupan kas laci dengan uang fisik Rp ' . number_format($request->physical_cash, 0, ',', '.') . ' (Sistem: Rp ' . number_format($targetSaldo, 0, ',', '.') . ', Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')',
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+        );
 
         return redirect()->route('teller.dashboard')
             ->with('success', 'Laporan penutupan kas berhasil dikirim ke Administrator.');

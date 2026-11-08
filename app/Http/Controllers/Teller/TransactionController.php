@@ -233,9 +233,18 @@ class TransactionController extends Controller
                     'amount'         => $request->amount,
                     'current_balance'=> $saver->saldo,
                     'teller_name'    => auth()->user()->officer_name ?? auth()->user()->username,
-                    'date'           => now()->format('d/m/Y H:i:s'),
+                    'date'           => now()->timezone('Asia/Jakarta')->format('d/m/Y H:i:s') . ' WIB',
                 ]);
             });
+
+            // Record Audit Log Setoran Tunai
+            \App\Models\AuditLog::record(
+                'SETORAN_TUNAI',
+                'Setoran Tunai',
+                "Setoran tunai sebesar Rp " . number_format($request->amount, 0, ',', '.') . " pada rekening {$saver->account_number} ({$saver->student_name}) berhasil.",
+                auth()->id(),
+                auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+            );
 
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
@@ -298,10 +307,9 @@ class TransactionController extends Controller
     {
         $request->validate([
             'account_number' => 'required|string|exists:savers,account_number',
-            'amount'         => 'required|numeric|min:1000|max:500000',
+            'amount'         => 'required|numeric|min:1000',
             'security_pin'   => 'required|digits:6', 
         ], [
-            'amount.max'            => 'Batas maksimal penarikan tunai adalah Rp 500.000 per transaksi.',
             'amount.min'            => 'Nominal penarikan tunai minimal Rp 1.000.',
             'amount.numeric'        => 'Nominal penarikan harus berupa angka.',
             'security_pin.required' => 'PIN keamanan nasabah wajib dimasukkan.',
@@ -340,7 +348,7 @@ class TransactionController extends Controller
 
         // 4. Block transaction if physical cash is insufficient
         if ($request->amount > $uangFisikDiLaci) {
-            $insufficientError = 'Transaksi Ditolak: Uang tunai fisik di laci tidak mencukupi untuk penarikan ini. Sisa kas Anda: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.');
+            $insufficientError = 'Transaksi Ditolak: Nominal penarikan melebihi ketersediaan uang fisik di laci kasir saat ini (Maksimal: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan lakukan Tambah Kas Laci jika perlu.';
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -415,9 +423,18 @@ class TransactionController extends Controller
                     'amount'         => $request->amount,
                     'current_balance'=> $saver->saldo,
                     'teller_name'    => auth()->user()->officer_name ?? auth()->user()->username,
-                    'date'           => now()->format('d/m/Y H:i:s'),
+                    'date'           => now()->timezone('Asia/Jakarta')->format('d/m/Y H:i:s') . ' WIB',
                 ]);
             });
+
+            // Record Audit Log Penarikan Tunai
+            \App\Models\AuditLog::record(
+                'PENARIKAN_TUNAI',
+                'Penarikan Tunai',
+                "Penarikan tunai sebesar Rp " . number_format($request->amount, 0, ',', '.') . " pada rekening {$saver->account_number} ({$saver->student_name}) berhasil.",
+                auth()->id(),
+                auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+            );
 
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([

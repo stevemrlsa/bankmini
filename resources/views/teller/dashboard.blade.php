@@ -655,7 +655,7 @@
                             @endif
                             <div class="activity-text">
                                 <strong>{{ $tx->saver->account_number ?? '1001-0004' }} — {{ $tx->saver->student_name ?? 'Siswa' }}</strong>
-                                <span>{{ strtolower($tx->transaction_type) == 'deposit' ? 'Setoran tunai' : 'Penarikan tunai' }} · {{ $tx->created_at->format('H:i') }}</span>
+                                <span>{{ strtolower($tx->transaction_type) == 'deposit' ? 'Setoran tunai' : 'Penarikan tunai' }} · {{ $tx->created_at ? $tx->created_at->timezone('Asia/Jakarta')->format('H:i') : ($tx->transaction_date ? \Carbon\Carbon::parse($tx->transaction_date)->timezone('Asia/Jakarta')->format('H:i') : '-') }} WIB</span>
                             </div>
                             @if(strtolower($tx->transaction_type) == 'deposit')
                                 <div class="activity-amount in">+Rp {{ number_format($tx->amount, 0, ',', '.') }}</div>
@@ -954,7 +954,7 @@
                 <div class="focus-field-group">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="focus-field-label mb-0" for="withdrawal_amount">Jumlah Penarikan (Rp)</label>
-                        <small class="text-muted" style="font-size: 0.74rem;">Min. Rp 1.000 · Maks. Rp 500.000</small>
+                        <small class="text-muted" style="font-size: 0.74rem;">Sesuai kas fisik di laci (Maks. Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }})</small>
                     </div>
                     <div class="focus-field-wrap">
                         <span class="prefix-currency">Rp</span>
@@ -965,7 +965,7 @@
                             class="focus-field-input"
                             placeholder="0"
                             min="1000"
-                            max="500000"
+                            max="{{ (int) ($saldoKas ?? 0) }}"
                             step="500"
                             required
                         >
@@ -1464,8 +1464,9 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (amountVal > 500000) {
-            withdrawalErrorAlert.textContent = 'Batas maksimal penarikan tunai per transaksi adalah Rp 500.000. (Setoran tunai tanpa batas).';
+        const maxDrawerCash = {{ (float) ($saldoKas ?? 0) }};
+        if (maxDrawerCash > 0 && amountVal > maxDrawerCash) {
+            withdrawalErrorAlert.textContent = 'Nominal penarikan (Rp ' + amountVal.toLocaleString('id-ID') + ') melebihi uang fisik di laci kas saat ini (Maksimal: Rp ' + maxDrawerCash.toLocaleString('id-ID') + '). Silakan lakukan Tambah Kas Laci jika perlu.';
             withdrawalErrorAlert.classList.remove('d-none');
             withdrawalAmount.focus();
             return;

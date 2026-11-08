@@ -99,7 +99,7 @@
                         <tr>
                             <td>
                                 <div class="fw-bold text-dark font-monospace">#TRX-{{ $tx->id }}</div>
-                                <small class="text-muted">{{ $tx->created_at ? $tx->created_at->translatedFormat('d M Y, H:i') : '-' }}</small>
+                                <small class="text-muted">{{ $tx->created_at ? $tx->created_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : '-' }}</small>
                             </td>
                             <td>
                                 <div class="fw-semibold text-dark font-monospace">{{ $tx->saver->account_number ?? '-' }}</div>

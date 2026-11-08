@@ -16,6 +16,9 @@ class EnsureTellerShiftOpen
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Jalankan auto-close shift otomatis jika sudah pukul 16:30 atau shift tertinggal
+        \App\Services\DailyReportService::autoClosePendingShifts();
+
         $hasActiveShift = TellerShift::where('user_id', auth()->id())
             ->where('status', 'Open')
             ->exists();

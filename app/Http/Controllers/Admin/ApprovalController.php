@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\DailyReport;
 use App\Models\TellerShift;
 use App\Models\Transaction;
+use App\Models\AuditLog;
+use App\Services\DailyReportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -17,6 +19,9 @@ class ApprovalController extends Controller
      */
     public function indexApproval()
     {
+        // Jalankan auto-close shift otomatis pada pukul 16:30 atau shift tertinggal
+        DailyReportService::autoClosePendingShifts();
+
         // Sinkronisasi otomatis jika ada data TellerShift yang belum tercatat di DailyReport
         try {
             $unSyncedShifts = TellerShift::whereIn('status', ['Closed', 'Approved'])->get();
@@ -117,6 +122,13 @@ class ApprovalController extends Controller
                         ]);
                     }
                 }
+
+                // Catat ke Audit Log Sistem
+                AuditLog::record(
+                    'APPROVE_KAS',
+                    'Approval Kas Teller',
+                    'Menyetujui laporan harian kasir ' . ($report->teller?->officer_name ?: $report->teller?->username) . ' periode ' . $report->report_date . ($amountTransfer > 0 ? ' dan memindahkan Rp ' . number_format($amountTransfer, 0, ',', '.') . ' ke Brankas Utama' : '') . '.'
+                );
             });
 
             return back()->with('success', 'Laporan kas teller disetujui! ' . (DailyReport::find($id)?->closing_balance_physical > 0 ? 'Dana resmi dipindahkan ke Brankas Utama dan tercatat dalam buku jurnal.' : 'Status laporan telah diperbarui menjadi Disetujui.'));
@@ -133,10 +145,11 @@ class ApprovalController extends Controller
     {
         $report = DailyReport::findOrFail($id);
         
+        $rejectReason = $request->notes ?? 'Laporan ditolak oleh Administrator.';
         $report->update([
             'status'      => 'rejected',
             'admin_id'    => auth()->id(), // Ditolak oleh Administrator
-            'notes'       => $request->notes ?? 'Laporan ditolak oleh Administrator.',
+            'notes'       => $rejectReason,
             'approval_at' => now(),
         ]);
 
@@ -147,8 +160,15 @@ class ApprovalController extends Controller
             ->first()
             ?->update([
                 'status' => 'Open',
-                'notes'  => $request->notes ?? 'Laporan ditolak oleh Administrator.',
+                'notes'  => $rejectReason,
             ]);
+
+        // Catat ke Audit Log Sistem
+        AuditLog::record(
+            'REJECT_KAS',
+            'Approval Kas Teller',
+            'Menolak laporan kas harian ' . ($report->teller?->officer_name ?: $report->teller?->username) . ' periode ' . $report->report_date . ' dengan catatan: ' . $rejectReason
+        );
 
         return back()->with('success', 'Laporan penutupan kas telah ditolak untuk diselesaikan oleh Teller.');
     }

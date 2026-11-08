@@ -78,6 +78,15 @@ class AuthController extends Controller
                 ])->onlyInput('username');
             }
 
+            // Catat Audit Log Login Berhasil
+            \App\Models\AuditLog::record(
+                'LOGIN',
+                'Autentikasi',
+                "Pengguna {$userRole} (" . (Auth::user()->officer_name ?? Auth::user()->username) . ") berhasil masuk ke sistem web.",
+                Auth::id(),
+                Auth::user()->officer_name ?? Auth::user()->username
+            );
+
             // Arahkan ke halaman sesuai dengan peran (role)
             switch ($userRole) {
                 case 'Administrator':
@@ -118,6 +127,16 @@ class AuthController extends Controller
     // Logout untuk semua peran pengguna
     public function logout(Request $request)
     {
+        if (Auth::check()) {
+            \App\Models\AuditLog::record(
+                'LOGOUT',
+                'Autentikasi',
+                "Pengguna " . (Auth::user()->officer_name ?? Auth::user()->username) . " keluar dari sistem web.",
+                Auth::id(),
+                Auth::user()->officer_name ?? Auth::user()->username
+            );
+        }
+
         Auth::logout();
         
         $request->session()->forget(['saver_id', 'account_number']);

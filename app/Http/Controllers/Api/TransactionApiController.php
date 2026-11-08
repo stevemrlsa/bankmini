@@ -124,10 +124,9 @@ class TransactionApiController extends Controller
     {
         $request->validate([
             'account_number' => 'required|string|exists:savers,account_number',
-            'amount' => 'required|numeric|min:1000|max:500000',
+            'amount' => 'required|numeric|min:1000',
             'security_pin' => 'required|digits:6',
         ], [
-            'amount.max' => 'Batas maksimal penarikan tunai per transaksi adalah Rp 500.000.',
             'amount.min' => 'Nominal penarikan tunai minimal Rp 1.000.',
         ]);
 

@@ -328,7 +328,7 @@
                             @endif
                             <div class="activity-text">
                                 <strong>{{ $transaction->saver->student_name ?? $transaction->saver->name ?? 'Nasabah' }} — {{ $transaction->saver->grade_class ?? $transaction->saver->student_class ?? $transaction->saver->student_id ?? '-' }}</strong>
-                                <span>{{ $isDeposit ? 'Setoran' : 'Penarikan' }} tunai · {{ $transaction->created_at ? $transaction->created_at->format('H:i') : '-' }}</span>
+                                <span>{{ $isDeposit ? 'Setoran' : 'Penarikan' }} tunai · {{ $transaction->created_at ? $transaction->created_at->timezone('Asia/Jakarta')->format('H:i') : '-' }} WIB</span>
                             </div>
                             @if($isDeposit)
                                 <div class="activity-amount in text-success">+Rp {{ number_format($transaction->amount, 0, ',', '.') }}</div>
