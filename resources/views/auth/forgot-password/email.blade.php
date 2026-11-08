@@ -365,7 +365,22 @@
                     @csrf
 
                     <div class="field-group">
-                        <label class="field-label" for="email">Alamat Email Pegawai</label>
+                        <label class="field-label" for="username">Username Akun (Opsional jika email sudah terdaftar)</label>
+                        <div class="input-wrap">
+                            <i class="bi bi-person prefix-icon"></i>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                value="{{ old('username') }}"
+                                class="input-field"
+                                placeholder="Contoh: admin / teller_satu"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label" for="email">Alamat Email Penerima Kode OTP <span class="text-danger">*</span></label>
                         <div class="input-wrap">
                             <i class="bi bi-envelope prefix-icon"></i>
                             <input
@@ -374,7 +389,7 @@
                                 name="email"
                                 value="{{ old('email') }}"
                                 class="input-field"
-                                placeholder="nama@bankmini.sch.id"
+                                placeholder="nama@gmail.com"
                                 required
                                 autofocus
                             >

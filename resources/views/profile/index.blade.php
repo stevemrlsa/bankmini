@@ -259,17 +259,26 @@
                                 <i class="bi bi-send-check fs-2"></i>
                             </div>
                             <h5 class="fw-bold text-dark">Langkah 1: Kirim Kode OTP Keamanan</h5>
-                            <p class="text-muted small mb-4">
-                                Sistem akan mengirimkan 6-digit kode OTP ke alamat email terdaftar Anda: <br>
-                                <strong class="text-primary">{{ $user->email }}</strong>. <br>
+                            <p class="text-muted small mb-3">
+                                Sistem akan mengirimkan 6-digit kode OTP ke alamat email di bawah ini. <br>
                                 Kode OTP ini berlaku selama <strong>2 menit</strong>.
                             </p>
 
-                            <form method="POST" action="{{ route('profile.password.otp') }}">
+                            <form method="POST" action="{{ route('profile.password.otp') }}" class="text-start">
                                 @csrf
-                                <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
-                                    <i class="bi bi-envelope-paper me-1"></i> Kirim Kode OTP Sekarang
-                                </button>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold small text-dark">Alamat Email Penerima Kode OTP <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope-at text-muted"></i></span>
+                                        <input type="email" name="email" class="form-control" value="{{ old('email', $user->email) }}" placeholder="contoh: nama@gmail.com" required>
+                                    </div>
+                                    <div class="form-text">Pastikan alamat email aktif untuk menerima kode OTP 6 digit.</div>
+                                </div>
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
+                                        <i class="bi bi-envelope-paper me-1"></i> Kirim Kode OTP Sekarang
+                                    </button>
+                                </div>
                             </form>
                         </div>
 
@@ -278,7 +287,7 @@
                         <div style="max-width: 480px; margin: 0 auto;">
                             <div class="text-center mb-3">
                                 <h5 class="fw-bold text-dark mb-1">Langkah 2: Verifikasi Kode OTP</h5>
-                                <p class="text-muted small mb-0">Masukkan 6-digit kode OTP yang telah dikirim ke <strong>{{ $user->email }}</strong></p>
+                                <p class="text-muted small mb-0">Masukkan 6-digit kode OTP yang telah dikirim ke <strong>{{ session('profile_pw_otp_email', $user->email) }}</strong></p>
                             </div>
 
                             {{-- Countdown Timer Box --}}
@@ -287,7 +296,7 @@
                                 <span id="pwCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                     <i class="bi bi-stopwatch me-1"></i> <span id="pwTimerDisplay">02:00</span>
                                 </span>
-                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Jika waktu habis, silakan klik Kirim Ulang OTP.</small>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Belum menerima kode? Anda dapat langsung klik tombol Kirim Ulang Kode OTP di bawah.</small>
                             </div>
 
                             <form method="POST" action="{{ route('profile.password.verify-otp') }}" class="mb-3">
@@ -302,7 +311,7 @@
                                     @error('otp')
                                         <div class="invalid-feedback text-center">{{ $message }}</div>
                                     @enderror
-                                    <div class="form-text text-center mt-2">Periksa kotak masuk (Inbox atau Spam) email {{ $user->email }}.</div>
+                                    <div class="form-text text-center mt-2">Periksa kotak masuk (Inbox atau Spam) email {{ session('profile_pw_otp_email', $user->email) }}.</div>
                                 </div>
 
                                 <button type="submit" class="btn btn-dark w-100 rounded-pill py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
@@ -310,17 +319,17 @@
                                 </button>
                             </form>
 
-                            <div class="d-flex align-items-center justify-content-between pt-2 border-top">
-                                <form method="POST" action="{{ route('profile.password.otp') }}" class="d-inline">
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap pt-2 border-top">
+                                <form method="POST" action="{{ route('profile.password.resend-otp') }}" class="d-inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-link text-decoration-none small text-primary fw-semibold p-0">
-                                        <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang OTP
+                                    <button type="submit" class="btn btn-outline-primary rounded-pill px-3 py-1 fw-semibold small">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang Kode OTP
                                     </button>
                                 </form>
 
                                 <form method="POST" action="{{ route('profile.password.cancel') }}" class="d-inline">
                                     @csrf
-                                    <button type="submit" class="btn btn-link text-decoration-none small text-danger p-0">
+                                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3 py-1 fw-semibold small">
                                         <i class="bi bi-x-circle me-1"></i> Batal / Kembali
                                     </button>
                                 </form>
@@ -475,10 +484,10 @@
                                 <span id="emailCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                     <i class="bi bi-stopwatch me-1"></i> <span id="emailTimerDisplay">02:00</span>
                                 </span>
-                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Waktu sistem: 1 sampai 2 menit. Jika lewat, wajib request ulang.</small>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Belum menerima kode? Klik tombol Kirim Ulang Kode OTP di bawah kapan saja.</small>
                             </div>
 
-                            <form method="POST" action="{{ route('profile.email.update') }}">
+                            <form method="POST" action="{{ route('profile.email.update') }}" class="mb-3">
                                 @csrf
 
                                 <div class="mb-4">
@@ -487,19 +496,26 @@
                                            class="form-control text-center font-monospace fs-5 fw-bold" placeholder="••••••" required autofocus>
                                 </div>
 
-                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                    <button type="submit" class="btn btn-dark rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
-                                        <i class="bi bi-check-circle-fill me-1"></i> Verifikasi &amp; Simpan Email Baru
-                                    </button>
-                                </div>
-                            </form>
-
-                            <form method="POST" action="{{ route('profile.email.cancel') }}" class="mt-3 text-end">
-                                @csrf
-                                <button type="submit" class="btn btn-link text-decoration-none small text-danger p-0">
-                                    <i class="bi bi-x-circle me-1"></i> Batal / Ganti Email Lain
+                                <button type="submit" class="btn btn-dark w-100 rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #16233F; border: none;">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Verifikasi &amp; Simpan Email Baru
                                 </button>
                             </form>
+
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap pt-2 border-top">
+                                <form method="POST" action="{{ route('profile.email.resend-otp') }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-primary rounded-pill px-3 py-1 fw-semibold small">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang Kode OTP
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ route('profile.email.cancel') }}" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3 py-1 fw-semibold small">
+                                        <i class="bi bi-x-circle me-1"></i> Batal / Ganti Email Lain
+                                    </button>
+                                </form>
+                            </div>
 
                             {{-- Script Timer 2 Menit --}}
                             <script>

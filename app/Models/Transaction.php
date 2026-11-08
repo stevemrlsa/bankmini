@@ -15,8 +15,6 @@ class Transaction extends Model
         'transaction_type',
         'amount',
         'status',
-        'description',
-        'notes',
     ];
 
     public function saver()

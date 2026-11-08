@@ -293,40 +293,60 @@ class SaverPortalController extends Controller
             return redirect()->route('login');
         }
 
-        if (empty($saver->email)) {
-            return back()->with('error', 'Akun tabungan Anda belum memiliki alamat email terdaftar. Silakan hubungi loket Teller sekolah atau atur email terlebih dahulu.');
+        $targetEmail = strtolower(trim((string) ($request->input('email') ?: session('saver_pw_otp_email') ?: $saver->email)));
+
+        if (empty($targetEmail) || !filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            return back()->with('error', 'Silakan masukkan alamat email aktif yang valid untuk menerima kode OTP.');
         }
 
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         session([
             'saver_pw_otp'            => $otp,
+            'saver_pw_otp_email'      => $targetEmail,
             'saver_pw_otp_expires_at' => now()->addMinutes(2)->timestamp,
             'saver_pw_otp_sent'       => true,
         ]);
 
         $emailSent = false;
         try {
-            Mail::to($saver->email)->send(new SendOtpMail(
+            SendOtpMail::sendReliably(
+                $targetEmail,
                 $otp,
                 $saver->student_name,
                 'Nasabah SimPel',
                 'mengubah kata sandi akun portal tabungan',
                 'Kode OTP Ganti Kata Sandi Portal Nasabah - Bank Mini'
-            ));
+            );
             $emailSent = true;
         } catch (\Throwable $e) {
-            Log::warning('Gagal kirim email OTP ganti password nasabah: ' . $e->getMessage());
+            Log::warning('Gagal kirim email OTP ganti password nasabah ke ' . $targetEmail . ': ' . $e->getMessage());
             if (config('app.debug')) {
                 session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP: {$otp}");
             } else {
-                return back()->with('error', 'Gagal mengirim email OTP: ' . $e->getMessage());
+                return back()->with('error', 'Gagal mengirim email OTP ke ' . $targetEmail . '. Pastikan alamat email benar dan aktif.');
             }
         }
 
         return back()->with('success', $emailSent
-            ? 'Kode OTP telah dikirimkan ke email Anda (' . $saver->email . '). Berlaku selama 2 menit.'
+            ? 'Kode OTP telah dikirimkan ke email Anda (' . $targetEmail . '). Berlaku selama 2 menit.'
             : 'Kode OTP keamanan telah dibuat untuk sesi ini.');
+    }
+
+    public function resendPasswordOtp(Request $request)
+    {
+        return $this->requestPasswordOtp($request);
+    }
+
+    public function cancelPasswordOtp()
+    {
+        session()->forget([
+            'saver_pw_otp',
+            'saver_pw_otp_email',
+            'saver_pw_otp_expires_at',
+            'saver_pw_otp_sent',
+        ]);
+        return back()->with('success', 'Alur perubahan kata sandi telah dibatalkan.');
     }
 
     /**
@@ -353,12 +373,12 @@ class SaverPortalController extends Controller
         // Cek kadaluarsa waktu 2 menit
         $expiresAt = session('saver_pw_otp_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
-            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan klik tombol Kirim Ulang Kode OTP.');
         }
 
         // Cek kesesuaian OTP
         $storedOtp = session('saver_pw_otp');
-        if (!$storedOtp || $storedOtp !== $request->otp) {
+        if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
             return back()->withInput()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
         }
 
@@ -378,6 +398,7 @@ class SaverPortalController extends Controller
         // Hapus session OTP
         session()->forget([
             'saver_pw_otp',
+            'saver_pw_otp_email',
             'saver_pw_otp_expires_at',
             'saver_pw_otp_sent',
         ]);
@@ -395,40 +416,60 @@ class SaverPortalController extends Controller
             return redirect()->route('login');
         }
 
-        if (empty($saver->email)) {
-            return back()->with('error', 'Akun tabungan Anda belum memiliki alamat email terdaftar. Silakan hubungi loket Teller sekolah atau atur email terlebih dahulu.');
+        $targetEmail = strtolower(trim((string) ($request->input('email') ?: session('saver_pin_otp_email') ?: $saver->email)));
+
+        if (empty($targetEmail) || !filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            return back()->with('error', 'Silakan masukkan alamat email aktif yang valid untuk menerima kode OTP.');
         }
 
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         session([
             'saver_pin_otp'            => $otp,
+            'saver_pin_otp_email'      => $targetEmail,
             'saver_pin_otp_expires_at' => now()->addMinutes(2)->timestamp,
             'saver_pin_otp_sent'       => true,
         ]);
 
         $emailSent = false;
         try {
-            Mail::to($saver->email)->send(new SendOtpMail(
+            SendOtpMail::sendReliably(
+                $targetEmail,
                 $otp,
                 $saver->student_name,
                 'Nasabah SimPel',
                 'mengubah PIN 6-digit transaksi loket',
                 'Kode OTP Ganti PIN 6-Digit - Bank Mini'
-            ));
+            );
             $emailSent = true;
         } catch (\Throwable $e) {
-            Log::warning('Gagal kirim email OTP ganti PIN nasabah: ' . $e->getMessage());
+            Log::warning('Gagal kirim email OTP ganti PIN nasabah ke ' . $targetEmail . ': ' . $e->getMessage());
             if (config('app.debug')) {
                 session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP PIN: {$otp}");
             } else {
-                return back()->with('error', 'Gagal mengirim email OTP: ' . $e->getMessage());
+                return back()->with('error', 'Gagal mengirim email OTP ke ' . $targetEmail . '. Pastikan alamat email benar dan aktif.');
             }
         }
 
         return back()->with('success', $emailSent
-            ? 'Kode OTP ganti PIN telah dikirimkan ke email Anda (' . $saver->email . '). Berlaku selama 2 menit.'
+            ? 'Kode OTP ganti PIN telah dikirimkan ke email Anda (' . $targetEmail . '). Berlaku selama 2 menit.'
             : 'Kode OTP ganti PIN telah dibuat untuk sesi ini.');
+    }
+
+    public function resendPinOtp(Request $request)
+    {
+        return $this->requestPinOtp($request);
+    }
+
+    public function cancelPinOtp()
+    {
+        session()->forget([
+            'saver_pin_otp',
+            'saver_pin_otp_email',
+            'saver_pin_otp_expires_at',
+            'saver_pin_otp_sent',
+        ]);
+        return back()->with('success', 'Alur perubahan PIN telah dibatalkan.');
     }
 
     /**
@@ -455,12 +496,12 @@ class SaverPortalController extends Controller
         // Cek kedaluwarsa waktu 2 menit
         $expiresAt = session('saver_pin_otp_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
-            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+            return back()->withInput()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan klik tombol Kirim Ulang Kode OTP.');
         }
 
         // Cek kesesuaian OTP
         $storedOtp = session('saver_pin_otp');
-        if (!$storedOtp || $storedOtp !== $request->otp) {
+        if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
             return back()->withInput()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
         }
 
@@ -471,6 +512,7 @@ class SaverPortalController extends Controller
         // Hapus session OTP
         session()->forget([
             'saver_pin_otp',
+            'saver_pin_otp_email',
             'saver_pin_otp_expires_at',
             'saver_pin_otp_sent',
         ]);
@@ -488,13 +530,16 @@ class SaverPortalController extends Controller
             return redirect()->route('login');
         }
 
+        if (!$request->filled('new_email') && session('saver_change_email_new')) {
+            return $this->resendEmailOtp($request);
+        }
+
         $request->validate([
-            'new_email'        => 'required|email|unique:savers,email,' . $saver->id,
+            'new_email'        => 'required|email|max:255',
             'auth_credential'  => 'required|string',
         ], [
             'new_email.required'        => 'Alamat email baru wajib diisi.',
             'new_email.email'           => 'Format email baru tidak valid.',
-            'new_email.unique'          => 'Alamat email tersebut sudah digunakan oleh akun nasabah lain.',
             'auth_credential.required'  => 'Kata sandi atau PIN keamanan saat ini wajib diisi.',
         ]);
 
@@ -510,10 +555,11 @@ class SaverPortalController extends Controller
             return back()->withInput()->with('error', 'Kata sandi atau PIN keamanan saat ini yang Anda masukkan salah.');
         }
 
+        $newEmail = strtolower(trim($request->new_email));
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         session([
-            'saver_change_email_new'        => $request->new_email,
+            'saver_change_email_new'        => $newEmail,
             'saver_change_email_otp'        => $otp,
             'saver_change_email_expires_at' => now()->addMinutes(2)->timestamp,
             'saver_change_email_otp_sent'   => true,
@@ -521,26 +567,79 @@ class SaverPortalController extends Controller
 
         $emailSent = false;
         try {
-            Mail::to($request->new_email)->send(new SendOtpMail(
+            SendOtpMail::sendReliably(
+                $newEmail,
                 $otp,
                 $saver->student_name,
                 'Nasabah SimPel',
                 'memverifikasi perubahan alamat email baru tabungan SimPel',
                 'Kode OTP Verifikasi Email Baru Nasabah - Bank Mini'
-            ));
+            );
             $emailSent = true;
         } catch (\Throwable $e) {
-            Log::warning('Gagal kirim email OTP ganti email nasabah: ' . $e->getMessage());
+            Log::warning('Gagal kirim email OTP ganti email nasabah ke ' . $newEmail . ': ' . $e->getMessage());
             if (config('app.debug')) {
                 session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Email belum terkirim ({$e->getMessage()}). Gunakan kode OTP email baru: {$otp}");
             } else {
-                return back()->withInput()->with('error', 'Gagal mengirim email OTP ke email baru: ' . $e->getMessage());
+                return back()->withInput()->with('error', 'Gagal mengirim email OTP ke ' . $newEmail . '. Pastikan alamat email benar dan aktif.');
             }
         }
 
         return back()->with('success', $emailSent
-            ? 'Kode OTP telah dikirimkan ke email baru Anda (' . $request->new_email . '). Berlaku selama 2 menit.'
+            ? 'Kode OTP telah dikirimkan ke email baru Anda (' . $newEmail . '). Berlaku selama 2 menit.'
             : 'Kode OTP verifikasi email baru telah dibuat untuk sesi ini.');
+    }
+
+    public function resendEmailOtp(Request $request)
+    {
+        $saver = $this->getActiveSaver();
+        if (!$saver) {
+            return redirect()->route('login');
+        }
+
+        $newEmail = session('saver_change_email_new');
+        if (!$newEmail) {
+            return back()->with('error', 'Sesi perubahan email tidak ditemukan. Silakan masukkan kembali alamat email baru Anda.');
+        }
+
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        session([
+            'saver_change_email_otp'        => $otp,
+            'saver_change_email_expires_at' => now()->addMinutes(2)->timestamp,
+            'saver_change_email_otp_sent'   => true,
+        ]);
+
+        try {
+            SendOtpMail::sendReliably(
+                $newEmail,
+                $otp,
+                $saver->student_name,
+                'Nasabah SimPel',
+                'memverifikasi perubahan alamat email baru tabungan SimPel',
+                'Kode OTP Baru Verifikasi Email Baru Nasabah - Bank Mini'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Gagal kirim ulang OTP ganti email nasabah ke ' . $newEmail . ': ' . $e->getMessage());
+            if (config('app.debug')) {
+                session()->flash('dev_otp_notice', "Mode Pengujian Lokal: Gunakan kode OTP baru: {$otp}");
+            } else {
+                return back()->with('error', 'Gagal mengirim ulang email OTP ke ' . $newEmail . '.');
+            }
+        }
+
+        return back()->with('success', 'Kode OTP baru telah dikirimkan ulang ke ' . $newEmail . '. Waktu verifikasi diperbarui menjadi 2 menit.');
+    }
+
+    public function cancelEmailOtp()
+    {
+        session()->forget([
+            'saver_change_email_new',
+            'saver_change_email_otp',
+            'saver_change_email_expires_at',
+            'saver_change_email_otp_sent',
+        ]);
+        return back()->with('success', 'Alur perubahan email telah dibatalkan.');
     }
 
     /**
@@ -568,14 +667,17 @@ class SaverPortalController extends Controller
         // Cek kedaluwarsa waktu 2 menit
         $expiresAt = session('saver_change_email_expires_at');
         if (!$expiresAt || now()->timestamp > $expiresAt) {
-            return back()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan minta kode OTP baru.');
+            return back()->with('error', 'Kode OTP telah kedaluwarsa (melebihi batas waktu 2 menit). Silakan klik tombol Kirim Ulang Kode OTP.');
         }
 
         // Cek kesesuaian OTP
         $storedOtp = session('saver_change_email_otp');
-        if (!$storedOtp || $storedOtp !== $request->otp) {
+        if (!$storedOtp || (string) $storedOtp !== (string) trim($request->otp)) {
             return back()->with('error', 'Kode OTP yang Anda masukkan salah atau tidak cocok.');
         }
+
+        // Bebaskan email dari akun lain jika sempat dipakai saat pengujian
+        Saver::where('email', $newEmail)->where('id', '!=', $saver->id)->update(['email' => null]);
 
         // Perbarui email pada tabel savers
         $saver->email = $newEmail;
@@ -587,6 +689,7 @@ class SaverPortalController extends Controller
             ->first();
 
         if ($user) {
+            User::where('email', $newEmail)->where('id', '!=', $user->id)->update(['email' => null]);
             $user->email = $newEmail;
             $user->save();
         }

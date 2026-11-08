@@ -252,20 +252,6 @@ class SaverApiController extends Controller
             ], 403);
         }
 
-        // Cek Rate Limiting (Maks 3 kali per jam)
-        $rateLimitKey = 'otp_attempts_' . $saver->id;
-        $attempts = cache()->get($rateLimitKey, 0);
-
-        if ($attempts >= 3) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Batas permintaan OTP tercapai (Maksimal 3 kali per jam). Silakan coba lagi nanti.',
-            ], 429);
-        }
-
-        // Catat attempt
-        cache()->put($rateLimitKey, $attempts + 1, now()->addHour());
-
         // Generate 6-digit OTP
         $otp = (string) mt_rand(100000, 999999);
         $otpToken = 'otp_tok_' . bin2hex(random_bytes(16));
@@ -275,6 +261,22 @@ class SaverApiController extends Controller
             'otp'       => $otp,
             'otp_token' => $otpToken,
         ], now()->addMinutes(5));
+
+        $targetEmail = $request->filled('email') ? strtolower(trim($request->email)) : $saver->email;
+        if (!empty($targetEmail) && filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            try {
+                \App\Mail\SendOtpMail::sendReliably(
+                    $targetEmail,
+                    $otp,
+                    $saver->student_name ?? $saver->username ?? 'Nasabah',
+                    'Nasabah',
+                    'mengatur ulang PIN transaksi mobile',
+                    'Kode OTP Reset PIN - Bank Mini'
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('SaverApi OTP Email gagal dikirim: ' . $e->getMessage());
+            }
+        }
 
         // Masking identifier
         $masked = strlen($id) > 4

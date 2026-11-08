@@ -587,23 +587,25 @@
                                 </div>
                                 <h6 class="fw-bold text-dark">Kirim Kode OTP Ganti PIN</h6>
                                 <p class="text-muted small mb-3">
-                                    Sistem akan mengirimkan 6 digit kode OTP verifikasi ke email akun Anda: <br>
-                                    <strong class="text-primary">{{ $saver->email ?: 'Email belum diatur' }}</strong>. <br>
-                                    Batas waktu aktif kode OTP adalah <strong>1 sampai 2 menit</strong>.
+                                    Sistem akan mengirimkan 6 digit kode OTP verifikasi ke alamat email di bawah ini. <br>
+                                    Batas waktu aktif kode OTP adalah <strong>2 menit</strong>.
                                 </p>
 
-                                @if(empty($saver->email))
-                                    <div class="alert alert-warning py-2 small mb-3">
-                                        Alamat email Anda belum diatur. Silakan perbarui alamat email terlebih dahulu pada tab <strong>Ganti Email</strong>.
+                                <form method="POST" action="{{ route('saver.profile.pin.otp') }}" class="text-start">
+                                    @csrf
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold small text-dark">Alamat Email Penerima Kode OTP <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope-at text-muted"></i></span>
+                                            <input type="email" name="email" class="form-control" value="{{ old('email', $saver->email) }}" placeholder="contoh: siswa@gmail.com" required>
+                                        </div>
                                     </div>
-                                @else
-                                    <form method="POST" action="{{ route('saver.profile.pin.otp') }}">
-                                        @csrf
+                                    <div class="text-center">
                                         <button type="submit" class="btn-submit-action">
                                             <i class="bi bi-envelope-paper me-1"></i> Kirim Kode OTP Sekarang
                                         </button>
-                                    </form>
-                                @endif
+                                    </div>
+                                </form>
                             </div>
                         @else
                             {{-- Step 2: Input OTP & PIN Baru dengan Countdown Timer 2 Menit --}}
@@ -613,17 +615,17 @@
                                     <span id="pinCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                         <i class="bi bi-stopwatch me-1"></i> <span id="pinTimerDisplay">02:00</span>
                                     </span>
-                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Waktu sistem: 1–2 menit. Jika habis, silakan kirim ulang OTP.</small>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Belum menerima kode? Klik tombol Kirim Ulang Kode OTP di bawah kapan saja.</small>
                                 </div>
 
-                                <form method="POST" action="{{ route('saver.profile.pin.update') }}">
+                                <form method="POST" action="{{ route('saver.profile.pin.update') }}" class="mb-3">
                                     @csrf
 
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold small text-dark">Masukkan 6-Digit Kode OTP <span class="text-danger">*</span></label>
                                         <input type="text" name="otp" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" 
                                                class="form-control text-center font-monospace fs-5 fw-bold" placeholder="••••••" required autofocus>
-                                        <div class="form-text">Periksa Inbox atau Spam email {{ $saver->email }}.</div>
+                                        <div class="form-text">Periksa Inbox atau Spam email {{ session('saver_pin_otp_email', $saver->email) }}.</div>
                                     </div>
 
                                     <div class="mb-3">
@@ -638,19 +640,26 @@
                                                class="form-control text-center font-monospace fs-5" placeholder="Ketik ulang 6 digit angka" required>
                                     </div>
 
-                                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                        <button type="submit" class="btn-submit-action">
-                                            <i class="bi bi-check-circle-fill me-1"></i> Simpan PIN Baru
-                                        </button>
-
-                                        <form method="POST" action="{{ route('saver.profile.pin.otp') }}" class="d-inline">
-                                            @csrf
-                                            <button type="submit" class="btn btn-link text-decoration-none small text-muted">
-                                                <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang OTP
-                                            </button>
-                                        </form>
-                                    </div>
+                                    <button type="submit" class="btn-submit-action w-100">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Simpan PIN Baru
+                                    </button>
                                 </form>
+
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap pt-2 border-top">
+                                    <form method="POST" action="{{ route('saver.profile.pin.resend-otp') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-primary rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang Kode OTP
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" action="{{ route('saver.profile.pin.cancel') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-danger rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-x-circle me-1"></i> Batal
+                                        </button>
+                                    </form>
+                                </div>
 
                                 <script>
                                     (function() {
@@ -706,23 +715,25 @@
                                 </div>
                                 <h6 class="fw-bold text-dark">Kirim Kode OTP Ganti Kata Sandi</h6>
                                 <p class="text-muted small mb-3">
-                                    Sistem akan mengirimkan kode OTP keamanan ke alamat email terdaftar: <br>
-                                    <strong class="text-primary">{{ $saver->email ?: 'Email belum diatur' }}</strong>. <br>
-                                    Batas waktu aktif kode OTP adalah <strong>1 sampai 2 menit</strong>.
+                                    Sistem akan mengirimkan kode OTP keamanan ke alamat email di bawah ini. <br>
+                                    Batas waktu aktif kode OTP adalah <strong>2 menit</strong>.
                                 </p>
 
-                                @if(empty($saver->email))
-                                    <div class="alert alert-warning py-2 small mb-3">
-                                        Alamat email Anda belum diatur. Silakan atur email terlebih dahulu pada tab <strong>Ganti Email</strong>.
+                                <form method="POST" action="{{ route('saver.profile.password.otp') }}" class="text-start">
+                                    @csrf
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold small text-dark">Alamat Email Penerima Kode OTP <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope-at text-muted"></i></span>
+                                            <input type="email" name="email" class="form-control" value="{{ old('email', $saver->email) }}" placeholder="contoh: siswa@gmail.com" required>
+                                        </div>
                                     </div>
-                                @else
-                                    <form method="POST" action="{{ route('saver.profile.password.otp') }}">
-                                        @csrf
+                                    <div class="text-center">
                                         <button type="submit" class="btn-submit-action">
                                             <i class="bi bi-envelope-paper me-1"></i> Kirim Kode OTP Sekarang
                                         </button>
-                                    </form>
-                                @endif
+                                    </div>
+                                </form>
                             </div>
                         @else
                             {{-- Step 2: Input OTP & Password Baru dengan Countdown Timer 2 Menit --}}
@@ -732,17 +743,17 @@
                                     <span id="pwCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                         <i class="bi bi-stopwatch me-1"></i> <span id="pwTimerDisplay">02:00</span>
                                     </span>
-                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Waktu sistem: 1–2 menit. Jika habis, silakan kirim ulang OTP.</small>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Belum menerima kode? Klik tombol Kirim Ulang Kode OTP di bawah kapan saja.</small>
                                 </div>
 
-                                <form method="POST" action="{{ route('saver.profile.password.update') }}">
+                                <form method="POST" action="{{ route('saver.profile.password.update') }}" class="mb-3">
                                     @csrf
 
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold small text-dark">Masukkan 6 Digit Kode OTP <span class="text-danger">*</span></label>
                                         <input type="text" name="otp" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" 
                                                class="form-control text-center font-monospace fs-5 fw-bold" placeholder="••••••" required autofocus>
-                                        <div class="form-text">Periksa Inbox atau Spam email {{ $saver->email }}.</div>
+                                        <div class="form-text">Periksa Inbox atau Spam email {{ session('saver_pw_otp_email', $saver->email) }}.</div>
                                     </div>
 
                                     <div class="mb-3">
@@ -755,19 +766,26 @@
                                         <input type="password" name="password_confirmation" class="form-control" placeholder="Ketik ulang kata sandi baru" required>
                                     </div>
 
-                                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                        <button type="submit" class="btn-submit-action">
-                                            <i class="bi bi-check-circle-fill me-1"></i> Simpan Kata Sandi Baru
-                                        </button>
-
-                                        <form method="POST" action="{{ route('saver.profile.password.otp') }}" class="d-inline">
-                                            @csrf
-                                            <button type="submit" class="btn btn-link text-decoration-none small text-muted">
-                                                <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang OTP
-                                            </button>
-                                        </form>
-                                    </div>
+                                    <button type="submit" class="btn-submit-action w-100">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Simpan Kata Sandi Baru
+                                    </button>
                                 </form>
+
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap pt-2 border-top">
+                                    <form method="POST" action="{{ route('saver.profile.password.resend-otp') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-primary rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang Kode OTP
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" action="{{ route('saver.profile.password.cancel') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-danger rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-x-circle me-1"></i> Batal
+                                        </button>
+                                    </form>
+                                </div>
 
                                 <script>
                                     (function() {
@@ -865,10 +883,10 @@
                                     <span id="emailCountdownBadge" class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 font-monospace fs-6 fw-bold">
                                         <i class="bi bi-stopwatch me-1"></i> <span id="emailTimerDisplay">02:00</span>
                                     </span>
-                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Waktu sistem: 1–2 menit. Jika lewat waktu, silakan ulangi permintaan.</small>
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Belum menerima kode? Klik tombol Kirim Ulang Kode OTP di bawah kapan saja.</small>
                                 </div>
 
-                                <form method="POST" action="{{ route('saver.profile.email.update') }}">
+                                <form method="POST" action="{{ route('saver.profile.email.update') }}" class="mb-3">
                                     @csrf
 
                                     <div class="mb-4">
@@ -877,16 +895,26 @@
                                                class="form-control text-center font-monospace fs-5 fw-bold" placeholder="••••••" required autofocus>
                                     </div>
 
-                                    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                        <button type="submit" class="btn-submit-action">
-                                            <i class="bi bi-check-circle-fill me-1"></i> Verifikasi &amp; Simpan Email Baru
-                                        </button>
-
-                                        <a href="{{ route('saver.profile') }}" class="btn btn-link text-decoration-none small text-muted">
-                                            <i class="bi bi-x-circle me-1"></i> Batal
-                                        </a>
-                                    </div>
+                                    <button type="submit" class="btn-submit-action w-100">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Verifikasi &amp; Simpan Email Baru
+                                    </button>
                                 </form>
+
+                                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap pt-2 border-top">
+                                    <form method="POST" action="{{ route('saver.profile.email.resend-otp') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-primary rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Kirim Ulang Kode OTP
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" action="{{ route('saver.profile.email.cancel') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-danger rounded-pill px-3 py-1 fw-semibold small">
+                                            <i class="bi bi-x-circle me-1"></i> Batal / Ganti Email
+                                        </button>
+                                    </form>
+                                </div>
 
                                 <script>
                                     (function() {

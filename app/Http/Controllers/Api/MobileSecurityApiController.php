@@ -102,12 +102,15 @@ class MobileSecurityApiController extends Controller
             ], 403);
         }
 
-        // 2. Ambil email nasabah (dari tabel savers atau tabel users terkait)
-        $email = $targetSaver->email;
+        // 2. Ambil email nasabah (prioritaskan email yang dikirim di request, lalu dari tabel savers atau tabel users terkait)
+        $email = $request->filled('email') ? strtolower(trim($request->email)) : $targetSaver->email;
         if (empty($email)) {
             $email = User::where('username', $targetSaver->username)
                 ->orWhere('officer_name', $targetSaver->student_name)
                 ->value('email');
+        }
+        if (empty($email) && $request->filled('identifier') && filter_var(trim($request->identifier), FILTER_VALIDATE_EMAIL)) {
+            $email = strtolower(trim($request->identifier));
         }
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -132,7 +135,7 @@ class MobileSecurityApiController extends Controller
         $studentName = $targetSaver->student_name ?? $targetSaver->username;
         $emailSent = false;
         try {
-            Mail::to($email)->send(new SendOtpMail($otp, $studentName, 'Nasabah'));
+            SendOtpMail::sendReliably($email, $otp, $studentName, 'Nasabah');
             $emailSent = true;
         } catch (\Throwable $e) {
             Log::warning('Mobile OTP Email gagal dikirim: ' . $e->getMessage());
@@ -358,12 +361,11 @@ class MobileSecurityApiController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'new_email'  => 'required|email|max:255',
-            'password'   => 'required|string',
+            'password'   => 'sometimes|nullable|string',
             'identifier' => 'sometimes|string',
         ], [
             'new_email.required' => 'Alamat email baru wajib diisi.',
             'new_email.email'    => 'Format alamat email baru tidak valid.',
-            'password.required'  => 'Kata sandi saat ini wajib diisi.',
         ]);
 
         if ($validator->fails()) {
@@ -443,37 +445,30 @@ class MobileSecurityApiController extends Controller
             ], 403);
         }
 
-        // Cek apakah email baru sudah digunakan oleh akun nasabah lain
         $newEmail = strtolower(trim($request->new_email));
-        $emailExists = Saver::where('email', $newEmail)
-            ->where('id', '!=', $targetSaver->id)
-            ->exists();
-        if ($emailExists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Alamat email tersebut sudah terdaftar pada akun nasabah lain.',
-            ], 422);
-        }
+        $cacheKey = 'mobile_change_email_' . md5($newEmail);
+        $existingCache = cache()->get($cacheKey);
 
-        // Verifikasi kata sandi atau PIN saat ini
-        $secret = $request->password;
-        $isValidAuth = false;
-        if (!empty($targetSaver->password) && Hash::check($secret, $targetSaver->password)) {
-            $isValidAuth = true;
-        } elseif (!empty($targetSaver->security_pin) && Hash::check($secret, $targetSaver->security_pin)) {
-            $isValidAuth = true;
-        }
+        // Verifikasi kata sandi atau PIN saat ini (kecuali jika sedang kirim ulang OTP ke email yang sama)
+        if ($request->filled('password') || !$existingCache) {
+            $secret = (string) $request->input('password', '');
+            $isValidAuth = false;
+            if (!empty($targetSaver->password) && Hash::check($secret, $targetSaver->password)) {
+                $isValidAuth = true;
+            } elseif (!empty($targetSaver->security_pin) && Hash::check($secret, $targetSaver->security_pin)) {
+                $isValidAuth = true;
+            }
 
-        if (!$isValidAuth) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kata sandi akun yang Anda masukkan salah.',
-            ], 401);
+            if (!$isValidAuth) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kata sandi akun yang Anda masukkan salah.',
+                ], 401);
+            }
         }
 
         // Generate 6-digit OTP
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $cacheKey = 'mobile_change_email_' . md5($newEmail);
 
         cache()->put($cacheKey, [
             'otp'        => $otp,
@@ -486,13 +481,14 @@ class MobileSecurityApiController extends Controller
         $studentName = $targetSaver->student_name ?? $targetSaver->username;
         $emailSent = false;
         try {
-            Mail::to($newEmail)->send(new SendOtpMail(
+            SendOtpMail::sendReliably(
+                $newEmail,
                 $otp,
                 $studentName,
                 'Nasabah',
                 'memverifikasi perubahan alamat email akun Bank Mini',
                 'Kode OTP Verifikasi Email Baru - Bank Mini'
-            ));
+            );
             $emailSent = true;
         } catch (\Throwable $e) {
             Log::warning('Mobile Change Email OTP gagal dikirim: ' . $e->getMessage());
@@ -582,13 +578,21 @@ class MobileSecurityApiController extends Controller
             ], 403);
         }
 
+        // Bebaskan email dari akun lain jika sempat dipakai saat pengujian
+        Saver::where('email', $newEmail)->where('id', '!=', $saver->id)->update(['email' => null]);
+
         // Update email di savers dan users
         $saver->email = $newEmail;
         $saver->save();
 
-        User::where('username', $saver->username)
+        $matchedUser = User::where('username', $saver->username)
             ->orWhere('username', 'siswa_' . $saver->student_id)
-            ->update(['email' => $newEmail]);
+            ->first();
+        if ($matchedUser) {
+            User::where('email', $newEmail)->where('id', '!=', $matchedUser->id)->update(['email' => null]);
+            $matchedUser->email = $newEmail;
+            $matchedUser->save();
+        }
 
         cache()->forget($cacheKey);
 

@@ -388,15 +388,26 @@
                         >
                     </div>
 
-                    <div class="text-center my-3">
-                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Batas waktu verifikasi kode OTP (1-2 menit):</small>
+                    <div class="text-center my-3 p-3 rounded-3 border" style="background-color: #F8FAFC;">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Batas waktu verifikasi kode OTP (2 menit):</small>
                         <span id="countdownBadge" class="badge bg-light text-danger border px-3 py-1 font-monospace fw-bold" style="font-size: 0.88rem; border-radius: 8px;">
                             <i class="bi bi-stopwatch me-1"></i> <span id="timerDisplay">02:00</span>
                         </span>
+                        @if(session('reset_email'))
+                            <small class="text-muted d-block mt-1" style="font-size: 0.74rem;">Dikirim ke: <strong>{{ session('reset_email') }}</strong></small>
+                        @endif
                     </div>
 
                     <button type="submit" class="btn-action">
                         <i class="bi bi-shield-check"></i> Verifikasi Kode OTP
+                    </button>
+                </form>
+
+                <!-- Tombol Kirim Ulang Kode OTP (Selalu aktif sebelum maupun sesudah waktu habis) -->
+                <form method="POST" action="{{ route('password.otp.resend') }}" class="mt-2">
+                    @csrf
+                    <button type="submit" class="btn btn-outline-primary w-100 fw-semibold d-flex align-items-center justify-content-center gap-2" style="height: 44px; border-radius: 12px; font-size: 0.88rem;">
+                        <i class="bi bi-arrow-repeat"></i> Kirim Ulang Kode OTP
                     </button>
                 </form>
 
@@ -432,7 +443,7 @@
 
                 <div class="links-group">
                     <a href="{{ route('password.request') }}">
-                        <i class="bi bi-arrow-repeat"></i> Kirim Ulang OTP
+                        <i class="bi bi-envelope-at"></i> Ganti Email Penerima
                     </a>
                     <a href="{{ route('login') }}">
                         <i class="bi bi-arrow-left"></i> Kembali ke Login

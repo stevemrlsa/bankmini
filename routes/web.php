@@ -62,7 +62,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // ========================================================
-// ALUR LUPA PASSWORD PEGAWAI (OTP VIA EMAIL)
+// ALUR LUPA PASSWORD PEGAWAI & NASABAH (OTP VIA EMAIL)
 // ========================================================
 Route::middleware('web')->group(function () {
     Route::get('/forgot-password', [WebForgotPasswordController::class, 'showEmailForm'])->name('password.request');
@@ -70,6 +70,7 @@ Route::middleware('web')->group(function () {
 
     Route::get('/forgot-password/otp', [WebForgotPasswordController::class, 'showOtpForm'])->name('password.otp.form');
     Route::post('/forgot-password/otp', [WebForgotPasswordController::class, 'verifyOtp'])->name('password.otp.verify');
+    Route::post('/forgot-password/otp/resend', [WebForgotPasswordController::class, 'resendOtp'])->name('password.otp.resend');
 
     Route::get('/reset-password', [WebForgotPasswordController::class, 'showResetForm'])->name('password.reset.form');
     Route::post('/reset-password', [WebForgotPasswordController::class, 'resetPassword'])->name('password.reset.submit');
@@ -114,10 +115,12 @@ Route::middleware(['auth'])->group(function () {
     // Profil Pengguna, Ganti Sandi & Ganti Email via OTP (Batas waktu 2 menit)
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::post('/profile/password/otp', [ProfileController::class, 'requestPasswordOtp'])->name('profile.password.otp');
+    Route::post('/profile/password/resend-otp', [ProfileController::class, 'resendPasswordOtp'])->name('profile.password.resend-otp');
     Route::post('/profile/password/verify-otp', [ProfileController::class, 'verifyPasswordOtp'])->name('profile.password.verify-otp');
     Route::post('/profile/password/cancel', [ProfileController::class, 'cancelPasswordOtp'])->name('profile.password.cancel');
     Route::post('/profile/password/update', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::post('/profile/email/otp', [ProfileController::class, 'requestEmailOtp'])->name('profile.email.otp');
+    Route::post('/profile/email/resend-otp', [ProfileController::class, 'resendEmailOtp'])->name('profile.email.resend-otp');
     Route::post('/profile/email/cancel', [ProfileController::class, 'cancelEmailOtp'])->name('profile.email.cancel');
     Route::post('/profile/email/update', [ProfileController::class, 'verifyAndChangeEmail'])->name('profile.email.update');
 });
@@ -303,14 +306,20 @@ Route::middleware(['saver.auth'])->group(function () {
     
     // Ganti Kata Sandi Nasabah via OTP
     Route::post('/nasabah/profile/password/otp', [SaverPortalController::class, 'requestPasswordOtp'])->name('saver.profile.password.otp');
+    Route::post('/nasabah/profile/password/resend-otp', [SaverPortalController::class, 'resendPasswordOtp'])->name('saver.profile.password.resend-otp');
+    Route::post('/nasabah/profile/password/cancel', [SaverPortalController::class, 'cancelPasswordOtp'])->name('saver.profile.password.cancel');
     Route::post('/nasabah/profile/password/update', [SaverPortalController::class, 'updatePasswordWithOtp'])->name('saver.profile.password.update');
     
     // Ganti PIN 6-Digit Nasabah via OTP
     Route::post('/nasabah/profile/pin/otp', [SaverPortalController::class, 'requestPinOtp'])->name('saver.profile.pin.otp');
+    Route::post('/nasabah/profile/pin/resend-otp', [SaverPortalController::class, 'resendPinOtp'])->name('saver.profile.pin.resend-otp');
+    Route::post('/nasabah/profile/pin/cancel', [SaverPortalController::class, 'cancelPinOtp'])->name('saver.profile.pin.cancel');
     Route::post('/nasabah/profile/pin/update', [SaverPortalController::class, 'updatePinWithOtp'])->name('saver.profile.pin.update');
     
     // Ganti Email Nasabah via OTP
     Route::post('/nasabah/profile/email/otp', [SaverPortalController::class, 'requestEmailOtp'])->name('saver.profile.email.otp');
+    Route::post('/nasabah/profile/email/resend-otp', [SaverPortalController::class, 'resendEmailOtp'])->name('saver.profile.email.resend-otp');
+    Route::post('/nasabah/profile/email/cancel', [SaverPortalController::class, 'cancelEmailOtp'])->name('saver.profile.email.cancel');
     Route::post('/nasabah/profile/email/update', [SaverPortalController::class, 'verifyAndChangeEmail'])->name('saver.profile.email.update');
 
     Route::post('/nasabah/security', [SaverPortalController::class, 'updateSecurity'])->name('saver.security.update');

@@ -65,8 +65,24 @@ class MobileAuthController extends Controller
         $cacheKey = 'otp_' . $saver->student_id;
         Cache::put($cacheKey, $otp, now()->addMinutes(5));
 
-        // Simulasi pengiriman via WhatsApp / Email (tercatat di log Laravel)
-        Log::info("Simulasi Pengiriman OTP Nasabah [ID: {$saver->id}, NIS: {$saver->student_id}, WhatsApp: {$saver->whatsapp_number}, Email: {$saver->email}]: {$otp}");
+        $targetEmail = $request->filled('email') ? strtolower(trim($request->email)) : $saver->email;
+        if (!empty($targetEmail) && filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            try {
+                \App\Mail\SendOtpMail::sendReliably(
+                    $targetEmail,
+                    $otp,
+                    $saver->student_name ?? $saver->username,
+                    'Nasabah',
+                    'aktivasi kredensial akun mobile',
+                    'Kode OTP Aktivasi Mobile - Bank Mini'
+                );
+            } catch (\Throwable $e) {
+                Log::warning('MobileAuth OTP Email gagal dikirim: ' . $e->getMessage());
+            }
+        }
+
+        // Catat log pengiriman OTP
+        Log::info("Pengiriman OTP Nasabah [ID: {$saver->id}, NIS: {$saver->student_id}, Email: {$targetEmail}]: {$otp}");
 
         return response()->json([
             'success' => true,

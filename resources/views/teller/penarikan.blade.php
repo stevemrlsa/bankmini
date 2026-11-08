@@ -496,7 +496,6 @@
                             id="amount"
                             name="amount"
                             min="1000"
-                            max="{{ (int) ($uangFisikDiLaci ?? 0) }}"
                             step="500"
                             class="field-input with-prefix @error('amount') is-invalid @enderror"
                             placeholder="0"
@@ -907,19 +906,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     if (saver.approved_request) {
                         const ar = saver.approved_request;
-                        const reqIdField = document.getElementById('withdrawal_request_id');
-                        if (reqIdField && !reqIdField.value) {
-                            reqIdField.value = ar.id;
+                        const isFromRequestUrl = Boolean(urlParams.get('request_id') || urlParams.get('amount') || "{{ isset($prefilledRequest) && $prefilledRequest ? '1' : '' }}");
+                        if (isFromRequestUrl) {
+                            const reqIdField = document.getElementById('withdrawal_request_id');
+                            if (reqIdField && !reqIdField.value) {
+                                reqIdField.value = ar.id;
+                            }
+                            if (!amountInput.value || amountInput.value === '0') {
+                                amountInput.value = ar.amount;
+                            }
                         }
                         infoHtml += `<div class="mt-2 p-2 rounded-3 bg-warning-subtle border border-warning small text-dark d-flex align-items-center justify-content-between">
                             <div><i class="bi bi-calendar-check-fill text-warning me-1"></i> <strong>Janjian Dana Besar (${ar.request_code}):</strong> Rp ${Number(ar.amount).toLocaleString('id-ID')}</div>
                             <button type="button" class="btn btn-sm btn-dark py-0 px-2 fw-semibold" style="font-size:0.74rem;" onclick="document.getElementById('amount').value = ${ar.amount}; if(document.getElementById('withdrawal_request_id')) document.getElementById('withdrawal_request_id').value = ${ar.id};">Gunakan Nominal Ini</button>
                         </div>`;
-
-                        // Otomatis terapkan nominal pengajuan jika amountInput masih kosong atau 0
-                        if (!amountInput.value || amountInput.value === '0') {
-                            amountInput.value = ar.amount;
-                        }
                     }
                     helper.innerHTML += infoHtml;
                 }
@@ -1065,8 +1065,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         const maxDrawerCash = {{ (float) ($uangFisikDiLaci ?? 0) }};
-        if (maxDrawerCash > 0 && parseInt(amountInput.value) > maxDrawerCash) {
-            alert('Transaksi Ditolak: Nominal penarikan (Rp ' + parseInt(amountInput.value).toLocaleString('id-ID') + ') melebihi uang fisik di laci kas saat ini (Maksimal: Rp ' + maxDrawerCash.toLocaleString('id-ID') + '). Silakan lakukan Tambah Kas Laci jika perlu.');
+        if (maxDrawerCash <= 0 || parseInt(amountInput.value) > maxDrawerCash) {
+            alert('Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' + maxDrawerCash.toLocaleString('id-ID') + '). Silakan tambah kas laci terlebih dahulu.');
             amountInput.focus();
             return;
         }

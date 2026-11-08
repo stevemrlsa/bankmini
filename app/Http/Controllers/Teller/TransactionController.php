@@ -278,24 +278,45 @@ class TransactionController extends Controller
             return back()->with('success', $successMessage ?? 'Setoran tunai berhasil diproses dan jurnal telah tercatat.');
             
         } catch (\Illuminate\Validation\ValidationException $e) {
+            $firstError = collect($e->errors())->flatten()->first() ?? 'Validasi setoran gagal.';
             if ($request->wantsJson() || $request->ajax()) {
-                $firstError = collect($e->errors())->flatten()->first() ?? 'Validasi setoran gagal.';
                 return response()->json([
                     'success' => false,
                     'message' => $firstError,
                     'errors'  => $e->errors()
                 ], 422);
             }
-            return back()->withErrors($e->errors())->withInput();
-        } catch (\Exception $e) {
+            return back()->withErrors($e->errors())->with('error', $firstError)->withInput();
+        } catch (\Throwable $e) {
+            $friendlyError = $this->formatFriendlyError($e, 'Setoran gagal diproses. Silakan periksa kembali nomor rekening dan nominal setoran.');
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $friendlyError
                 ], 422);
             }
-            return back()->with('error', $e->getMessage())->onlyInput('account_number', 'amount');
+            return back()->with('error', $friendlyError)->onlyInput('account_number', 'amount');
         }
+    }
+
+    /**
+     * Format pesan error agar ramah pengguna dan tidak pernah menampilkan SQLSTATE mentah ke Teller
+     */
+    private function formatFriendlyError(\Throwable $e, string $defaultMessage = 'Transaksi gagal diproses. Silakan periksa kembali data input dan saldo rekening nasabah.'): string
+    {
+        $msg = $e->getMessage();
+
+        if ($e instanceof \Illuminate\Database\QueryException || str_contains($msg, 'SQLSTATE')) {
+            \Illuminate\Support\Facades\Log::error('Database Query Error on Teller Transaction: ' . $msg);
+
+            if (str_contains(strtolower($msg), 'check_saldo') || str_contains($msg, '3819') || str_contains(strtolower($msg), 'saldo')) {
+                return 'Penarikan ditolak! Sisa saldo minimal yang wajib mengendap di rekening adalah Rp 10.000.';
+            }
+
+            return $defaultMessage;
+        }
+
+        return $msg ?: $defaultMessage;
     }
 
     public function createPenarikan()
@@ -318,7 +339,7 @@ class TransactionController extends Controller
                 ->where('status', '!=', 'Failed')
                 ->sum('amount');
 
-            $uangFisikDiLaci = (float) $activeShift->opening_balance + $totalSetoran - $totalPenarikan;
+            $uangFisikDiLaci = max(0, (float) $activeShift->opening_balance + (float) $totalSetoran - (float) $totalPenarikan);
         }
 
         $prefilledRequest = null;
@@ -331,15 +352,24 @@ class TransactionController extends Controller
 
     public function storePenarikan(Request $request)
     {
+        // Bersihkan titik ribuan jika ada
+        if ($request->has('amount')) {
+            $cleanAmount = preg_replace('/[^0-9]/', '', (string) $request->input('amount'));
+            $request->merge(['amount' => $cleanAmount !== '' ? (float) $cleanAmount : null]);
+        }
+
         $request->validate([
             'account_number' => 'required|string|exists:savers,account_number',
             'amount'         => 'required|numeric|min:1000',
             'security_pin'   => 'required|digits:6', 
         ], [
-            'amount.min'            => 'Nominal penarikan tunai minimal Rp 1.000.',
-            'amount.numeric'        => 'Nominal penarikan harus berupa angka.',
-            'security_pin.required' => 'PIN keamanan nasabah wajib dimasukkan.',
-            'security_pin.digits'   => 'PIN keamanan harus terdiri dari 6 digit angka.',
+            'account_number.required' => 'Nomor rekening nasabah wajib diisi.',
+            'account_number.exists'   => 'Nomor rekening nasabah tidak ditemukan.',
+            'amount.required'         => 'Nominal penarikan wajib diisi.',
+            'amount.min'              => 'Nominal penarikan tunai minimal Rp 1.000.',
+            'amount.numeric'          => 'Nominal penarikan harus berupa angka.',
+            'security_pin.required'   => 'PIN keamanan nasabah wajib dimasukkan.',
+            'security_pin.digits'     => 'PIN keamanan harus terdiri dari 6 digit angka.',
         ]);
 
         // 1. Get the Teller's active shift
@@ -348,46 +378,68 @@ class TransactionController extends Controller
             ->first();
 
         if (!$activeShift) {
-            $shiftError = 'Akses Ditolak: Anda belum membuka laci kasir (Shift).';
+            $shiftError = 'Penarikan ditolak! Anda belum membuka shift / laci kasir.';
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => $shiftError
                 ], 422);
             }
-            return back()->with('error', $shiftError);
+            return back()->withInput()->with('error', $shiftError);
         }
 
         // 2. Calculate cash flow since the shift opened
         $totalSetoran = \App\Models\Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Deposit', 'setor', 'setoran'])
+            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
             ->where('created_at', '>=', $activeShift->opened_at)
+            ->where('status', '!=', 'Failed')
             ->sum('amount');
 
         $totalPenarikan = \App\Models\Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Withdrawal', 'tarik', 'penarikan'])
+            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
             ->where('created_at', '>=', $activeShift->opened_at)
+            ->where('status', '!=', 'Failed')
             ->sum('amount');
 
-        // 3. Calculate actual physical cash
-        $uangFisikDiLaci = $activeShift->opening_balance + $totalSetoran - $totalPenarikan;
+        // 3. Calculate actual physical cash in drawer
+        $uangFisikDiLaci = max(0, (float) $activeShift->opening_balance + (float) $totalSetoran - (float) $totalPenarikan);
 
         // 4. Block transaction if physical cash is insufficient
-        if ($request->amount > $uangFisikDiLaci) {
-            $insufficientError = 'Transaksi Ditolak: Nominal penarikan melebihi ketersediaan uang fisik di laci kasir saat ini (Maksimal: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan lakukan Tambah Kas Laci jika perlu.';
+        if ($uangFisikDiLaci <= 0 || (float) $request->amount > $uangFisikDiLaci) {
+            $insufficientError = 'Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.';
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
                     'message' => $insufficientError
                 ], 422);
             }
-            return back()->with('error', $insufficientError);
+            return back()->withInput()->with('error', $insufficientError);
         }
 
         try {
             $saver = null;
             $withdrawalReq = null;
-            DB::transaction(function () use ($request, &$saver, &$withdrawalReq) {
+            DB::transaction(function () use ($request, $activeShift, &$saver, &$withdrawalReq) {
+                // Validasi ulang saldo kas laci di dalam transaksi
+                $setoranShift = Transaction::where('user_id', auth()->id())
+                    ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
+                    ->where('created_at', '>=', $activeShift->opened_at)
+                    ->where('status', '!=', 'Failed')
+                    ->sum('amount');
+
+                $penarikanShift = Transaction::where('user_id', auth()->id())
+                    ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+                    ->where('created_at', '>=', $activeShift->opened_at)
+                    ->where('status', '!=', 'Failed')
+                    ->sum('amount');
+
+                $kasLaciTersedia = max(0, (float) $activeShift->opening_balance + (float) $setoranShift - (float) $penarikanShift);
+                if ($kasLaciTersedia <= 0 || (float) $request->amount > $kasLaciTersedia) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'amount' => 'Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($kasLaciTersedia, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.'
+                    ]);
+                }
+
                 // 1. Ambil data dengan lock dalam transaksi
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
@@ -395,85 +447,112 @@ class TransactionController extends Controller
                 $statusLower = strtolower(trim((string) ($saver->status ?? '')));
                 if ($statusLower === 'blocked' || $statusLower === 'blokir') {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'account_number' => 'Penarikan Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Penarikan dana tidak dapat diproses.'
+                        'account_number' => 'Penarikan ditolak! Rekening nasabah ini sedang diblokir oleh Administrator.'
                     ]);
                 }
                 if ($statusLower !== 'active' && $statusLower !== 'aktif') {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'account_number' => 'Penarikan Ditolak: Rekening nasabah berstatus Belum Aktif (' . ($saver->status ?: 'Inactive') . '). Transaksi penarikan tidak dapat diproses.'
+                        'account_number' => 'Penarikan ditolak! Rekening nasabah belum aktif. Silakan lakukan aktivasi rekening terlebih dahulu.'
                     ]);
                 }
 
                 // 3. Cek PIN
                 if (!Hash::check($request->security_pin, $saver->security_pin)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'security_pin' => 'PIN keamanan yang dimasukkan salah.'
+                        'security_pin' => 'PIN keamanan 6-digit yang dimasukkan salah.'
                     ]);
                 }
 
-                // 4. Cek sisa saldo mengendap minimal (default Rp 10.000)
-                $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
-                $batasMinSaldo = $settingMinSaldo ? (int)$settingMinSaldo->value : 10000;
-                $maxBisaDitarik = max(0, (float)$saver->saldo - $batasMinSaldo);
+                // 4. Cek sisa saldo mengendap minimal (wajib minimal Rp 10.000)
+                $batasMinSaldo = 10000;
+                try {
+                    $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
+                    if ($settingMinSaldo && (int) $settingMinSaldo->value >= 10000) {
+                        $batasMinSaldo = (int) $settingMinSaldo->value;
+                    }
+                } catch (\Throwable $e) {
+                    $batasMinSaldo = 10000;
+                }
 
-                if (($saver->saldo - $request->amount) < $batasMinSaldo) {
+                $maxBisaDitarik = max(0, (float) $saver->saldo - $batasMinSaldo);
+
+                if (((float) $saver->saldo - (float) $request->amount) < $batasMinSaldo) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'amount' => 'Penarikan ditolak! Saldo wajib mengendap minimal Rp ' . number_format($batasMinSaldo, 0, ',', '.') . '. Maksimal saldo yang dapat ditarik dari rekening saat ini adalah Rp ' . number_format($maxBisaDitarik, 0, ',', '.') . '.'
+                        'amount' => 'Penarikan ditolak! Sisa saldo minimal yang harus mengendap di rekening adalah Rp ' . number_format($batasMinSaldo, 0, ',', '.') . '. Maksimal saldo yang dapat ditarik saat ini adalah Rp ' . number_format($maxBisaDitarik, 0, ',', '.') . '.'
                     ]);
                 }
 
-                // 5. Aturan Penarikan Tunai: Reguler (Maks Rp 1.000.000/hari) vs Janjian Dana Besar (> Rp 1.000.000)
-                if ($request->amount > 1000000 || $request->filled('withdrawal_request_id')) {
-                    // Penarikan di atas 1 Jt atau pencairan janjian penarikan:
-                    // 1. Cek apakah ada ID janjian spesifik yang dikirim dari form (withdrawal_request_id)
-                    if ($request->filled('withdrawal_request_id')) {
-                        $withdrawalReq = \App\Models\WithdrawalRequest::where('id', $request->withdrawal_request_id)
-                            ->where('saver_id', $saver->id)
-                            ->where('status', 'approved')
-                            ->first();
+                // 5. Aturan Penarikan Tunai: Reguler (<= Rp 1.000.000/hari) vs Janjian Dana Besar (> Rp 1.000.000)
+                $nominalTarik = (float) $request->amount;
+
+                if ($nominalTarik > 1000000) {
+                    // Penarikan di atas Rp 1.000.000: wajib ada pengajuan janjian yang sudah disetujui
+                    try {
+                        if ($request->filled('withdrawal_request_id')) {
+                            $withdrawalReq = \App\Models\WithdrawalRequest::where('id', $request->withdrawal_request_id)
+                                ->where('saver_id', $saver->id)
+                                ->where('status', 'approved')
+                                ->first();
+                        }
+
+                        if (!$withdrawalReq) {
+                            $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                                ->where('status', 'approved')
+                                ->where('amount', '>=', $nominalTarik)
+                                ->latest()
+                                ->first();
+                        }
+                    } catch (\Throwable $e) {
+                        $withdrawalReq = null;
                     }
 
-                    // 2. Jika belum ditemukan, cari janjian approved untuk saver ini yang nominalnya mencukupi
                     if (!$withdrawalReq) {
-                        $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
-                            ->where('status', 'approved')
-                            ->where('amount', '>=', $request->amount)
-                            ->latest()
-                            ->first();
-                    }
-
-                    // 3. Jika nominal penarikan di atas Rp 1.000.000 dan tidak ditemukan pengajuan janjian yang disetujui
-                    if ($request->amount > 1000000 && !$withdrawalReq) {
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            'amount' => 'Penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1 dan telah disetujui oleh Teller dan Administrator. Tidak ditemukan pengajuan janjian yang telah disetujui untuk rekening ini.'
+                            'amount' => 'Penarikan ditolak! Penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1 dan telah disetujui oleh Teller serta Administrator.'
                         ]);
                     }
                 } else {
-                    // Penarikan reguler (<= 1 Jt): Batas maksimal akumulasi Rp 1.000.000 per nasabah per hari
+                    // Penarikan reguler (<= Rp 1.000.000): Batas maksimal akumulasi reguler Rp 1.000.000 per nasabah per hari
                     $maxRegulerPerHari = 1000000;
-                    $todayWithdrawn = Transaction::where('saver_id', $saver->id)
+
+                    $disbursedRequestTxIds = [];
+                    try {
+                        $disbursedRequestTxIds = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                            ->whereNotNull('transaction_id')
+                            ->pluck('transaction_id')
+                            ->toArray();
+                    } catch (\Throwable $e) {
+                        $disbursedRequestTxIds = [];
+                    }
+
+                    $todayRegularQuery = Transaction::where('saver_id', $saver->id)
                         ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
                         ->whereDate('created_at', today())
                         ->where('status', '!=', 'Failed')
-                        ->sum('amount');
+                        ->where('amount', '<=', $maxRegulerPerHari);
 
-                    if (($todayWithdrawn + $request->amount) > $maxRegulerPerHari) {
+                    if (!empty($disbursedRequestTxIds)) {
+                        $todayRegularQuery->whereNotIn('id', $disbursedRequestTxIds);
+                    }
+
+                    $todayWithdrawn = (float) $todayRegularQuery->sum('amount');
+
+                    if (($todayWithdrawn + $nominalTarik) > $maxRegulerPerHari) {
                         $sisaKuota = max(0, $maxRegulerPerHari - $todayWithdrawn);
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            'amount' => 'Penarikan reguler ditolak! Maksimal penarikan tunai reguler adalah Rp ' . number_format($maxRegulerPerHari, 0, ',', '.') . ' per hari. Hari ini nasabah telah menarik Rp ' . number_format($todayWithdrawn, 0, ',', '.') . ' (Sisa kuota reguler hari ini: Rp ' . number_format($sisaKuota, 0, ',', '.') . '). Untuk penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1.'
+                            'amount' => 'Penarikan ditolak! Batas penarikan reguler adalah Rp 1.000.000 per hari. Sisa kuota penarikan harian nasabah hari ini adalah Rp ' . number_format($sisaKuota, 0, ',', '.') . '.'
                         ]);
                     }
                 }
 
-                // 6. Simpan Transaksi Penarikan
+                // 6. Simpan Transaksi Penarikan (hanya kolom yang ada pada tabel transactions)
                 $transaction = Transaction::create([
                     'saver_id'         => $saver->id,
                     'user_id'          => auth()->id(),
                     'transaction_date' => now(),
                     'transaction_type' => 'Withdrawal',
-                    'amount'           => $request->amount,
+                    'amount'           => $nominalTarik,
                     'status'           => 'Approved',
-                    'notes'            => $withdrawalReq ? ("Pencairan Janjian Penarikan Dana Besar (" . $withdrawalReq->request_code . ")") : "Penarikan Tunai Reguler",
                 ]);
 
                 // 7. Jika menggunakan Janjian Penarikan Dana Besar, tandai sebagai Selesai / Completed
@@ -487,7 +566,7 @@ class TransactionController extends Controller
                 }
 
                 // 8. Potong saldo nasabah (Seketika)
-                $saver->saldo -= $request->amount;
+                $saver->saldo -= $nominalTarik;
                 $saver->save();
 
                 // 9. Jurnal Double-Entry (Seketika)
@@ -496,7 +575,7 @@ class TransactionController extends Controller
                         'transaction_id' => $transaction->id,
                         'account_code'   => '201', // Debit Tabungan
                         'position'       => 'Debit',
-                        'amount'         => $request->amount,
+                        'amount'         => $nominalTarik,
                         'created_at'     => now(),
                         'updated_at'     => now(),
                     ],
@@ -504,7 +583,7 @@ class TransactionController extends Controller
                         'transaction_id' => $transaction->id,
                         'account_code'   => '101', // Kredit Kas
                         'position'       => 'Credit',
-                        'amount'         => $request->amount,
+                        'amount'         => $nominalTarik,
                         'created_at'     => now(),
                         'updated_at'     => now(),
                     ]
@@ -516,7 +595,7 @@ class TransactionController extends Controller
                     'type'           => $withdrawalReq ? 'Penarikan Dana Besar (Janjian H-1)' : 'Penarikan Tunai (Withdrawal)',
                     'account_number' => $saver->account_number,
                     'student_name'   => $saver->student_name,
-                    'amount'         => $request->amount,
+                    'amount'         => $nominalTarik,
                     'current_balance'=> $saver->saldo,
                     'teller_name'    => auth()->user()->officer_name ?? auth()->user()->username,
                     'date'           => now()->timezone('Asia/Jakarta')->format('d/m/Y H:i:s') . ' WIB',
@@ -547,23 +626,24 @@ class TransactionController extends Controller
             return back()->with('success', 'Penarikan tunai berhasil diproses. Saldo nasabah dipotong dan jurnal tercatat.');
 
         } catch (\Illuminate\Validation\ValidationException $e) {
+            $firstError = collect($e->errors())->flatten()->first() ?? 'Penarikan ditolak karena tidak memenuhi syarat transaksi.';
             if ($request->wantsJson() || $request->ajax()) {
-                $firstError = collect($e->errors())->flatten()->first() ?? 'Validasi penarikan gagal.';
                 return response()->json([
                     'success' => false,
                     'message' => $firstError,
                     'errors'  => $e->errors()
                 ], 422);
             }
-            return back()->withErrors($e->errors())->withInput();
-        } catch (\Exception $e) {
+            return back()->withErrors($e->errors())->with('error', $firstError)->withInput();
+        } catch (\Throwable $e) {
+            $friendlyError = $this->formatFriendlyError($e);
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $friendlyError
                 ], 422);
             }
-            return back()->with('error', $e->getMessage())->withInput();
+            return back()->with('error', $friendlyError)->withInput();
         }
     }
 
@@ -623,15 +703,38 @@ class TransactionController extends Controller
                 $statusMessage = 'PERINGATAN: Rekening nasabah ini berstatus Belum Aktif (' . ($saver->status ?: 'Inactive') . '). Transaksi hanya dapat diproses setelah aktivasi di menu Aktivasi Nasabah.';
             }
 
-            $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
-            $batasMinSaldo = $settingMinSaldo ? (int)$settingMinSaldo->value : 10000;
+            $batasMinSaldo = 10000;
+            try {
+                $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
+                if ($settingMinSaldo && (int) $settingMinSaldo->value >= 10000) {
+                    $batasMinSaldo = (int) $settingMinSaldo->value;
+                }
+            } catch (\Throwable $e) {
+                $batasMinSaldo = 10000;
+            }
             $maxBisaDitarik = max(0, (float)$saver->saldo - $batasMinSaldo);
 
-            $todayWithdrawn = (float) Transaction::where('saver_id', $saver->id)
+            $disbursedRequestTxIds = [];
+            try {
+                $disbursedRequestTxIds = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                    ->whereNotNull('transaction_id')
+                    ->pluck('transaction_id')
+                    ->toArray();
+            } catch (\Throwable $e) {
+                $disbursedRequestTxIds = [];
+            }
+
+            $todayRegularQuery = Transaction::where('saver_id', $saver->id)
                 ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
                 ->whereDate('created_at', today())
                 ->where('status', '!=', 'Failed')
-                ->sum('amount');
+                ->where('amount', '<=', 1000000);
+
+            if (!empty($disbursedRequestTxIds)) {
+                $todayRegularQuery->whereNotIn('id', $disbursedRequestTxIds);
+            }
+
+            $todayWithdrawn = (float) $todayRegularQuery->sum('amount');
             $remainingDailyQuota = max(0, 1000000 - $todayWithdrawn);
 
             $approvedRequest = null;
