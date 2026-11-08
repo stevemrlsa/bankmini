@@ -92,13 +92,15 @@ Route::prefix('mobile/auth')->group(function () {
 });
 
 // ---------------------------------------------------------
-// MOBILE SECURITY & OTP FLOW (UBAH & LUPA PASSWORD / PIN)
+// MOBILE SECURITY & OTP FLOW (UBAH & LUPA PASSWORD / PIN / EMAIL)
 // ---------------------------------------------------------
 Route::prefix('mobile/security')->group(function () {
     Route::post('/request-otp', [MobileSecurityApiController::class, 'requestOtp']);
     Route::post('/verify-otp', [MobileSecurityApiController::class, 'verifyOtp']);
     Route::post('/reset-password', [MobileSecurityApiController::class, 'resetPassword']);
     Route::post('/reset-pin', [MobileSecurityApiController::class, 'resetPin']);
+    Route::post('/change-email/request-otp', [MobileSecurityApiController::class, 'requestChangeEmailOtp']);
+    Route::post('/change-email/verify-otp', [MobileSecurityApiController::class, 'verifyChangeEmailOtp']);
 });
 
 // ---------------------------------------------------------

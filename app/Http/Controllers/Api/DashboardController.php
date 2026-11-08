@@ -33,19 +33,57 @@ class DashboardController extends Controller
             $balance = 0;
             $saverId = null;
 
-            // 2. Identifikasi identitas & saldo nasabah
+            // 2. Identifikasi identitas & saldo nasabah serta validasi status aktif
             if ($authUser instanceof Saver) {
+                $statusLower = strtolower(trim((string) ($authUser->status ?? '')));
+                if ($statusLower === 'blocked' || $statusLower === 'blokir') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator. Silakan hubungi loket Teller sekolah.',
+                    ], 403);
+                }
+
+                if ($statusLower !== 'active' && $statusLower !== 'aktif') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi di loket Teller Bank Mini terlebih dahulu.',
+                    ], 403);
+                }
+
                 $saverId = $authUser->id;
                 $name = $authUser->student_name ?? $authUser->name ?? 'Nasabah';
                 $accountNumber = $authUser->account_number ?? '-';
                 $balance = isset($authUser->saldo) ? (float) $authUser->saldo : null;
             } elseif ($authUser instanceof User) {
                 // Jika auth menggunakan model User, cocokkan dengan profil Saver terkait
+                $userStatus = strtolower(trim((string) ($authUser->status ?? '')));
+                if ($userStatus === 'blokir') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Akun pengguna Anda sedang diblokir oleh Administrator.',
+                    ], 403);
+                }
+
                 $saver = Saver::where('student_id', $authUser->username)
                     ->orWhere('email', $authUser->email)
                     ->first();
 
                 if ($saver) {
+                    $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+                    if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator.',
+                        ], 403);
+                    }
+
+                    if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Rekening tabungan belum aktif.',
+                        ], 403);
+                    }
+
                     $saverId = $saver->id;
                     $name = $saver->student_name ?? $saver->name ?? $authUser->officer_name ?? $authUser->username;
                     $accountNumber = $saver->account_number ?? '-';

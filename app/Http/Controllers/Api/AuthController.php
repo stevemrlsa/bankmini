@@ -48,10 +48,20 @@ class AuthController extends Controller
             ->orWhere('student_id', $identifier)
             ->first();
 
+        $saverModel = $user instanceof Saver ? $user : null;
+
         if (!$user) {
             $user = User::where('username', $identifier)
                 ->orWhere('email', $identifier)
                 ->first();
+
+            if ($user) {
+                $saverModel = Saver::where('user_id', $user->id)
+                    ->orWhere('username', $user->username)
+                    ->orWhere('student_id', str_replace('siswa_', '', $user->username))
+                    ->orWhere('email', $user->email)
+                    ->first();
+            }
         }
 
         // 3. Verifikasi apakah akun ditemukan
@@ -69,6 +79,8 @@ class AuthController extends Controller
             $passwordValid = true;
         } elseif ($user instanceof Saver && !empty($user->security_pin) && Hash::check($secret, $user->security_pin)) {
             $passwordValid = true;
+        } elseif ($saverModel && !empty($saverModel->security_pin) && Hash::check($secret, $saverModel->security_pin)) {
+            $passwordValid = true;
         }
 
         if (!$passwordValid) {
@@ -76,6 +88,29 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'Kredensial tidak valid',
             ], 401);
+        }
+
+        // 5. Validasi Status Rekening Nasabah (Wajib Aktif)
+        // Jika rekening berstatus belum aktif, nonaktif, atau diblokir, mutlak DITOLAK masuk
+        $effectiveStatus = 'active';
+        if ($saverModel) {
+            $effectiveStatus = strtolower(trim((string) ($saverModel->status ?? '')));
+        } elseif ($user instanceof Saver) {
+            $effectiveStatus = strtolower(trim((string) ($user->status ?? '')));
+        }
+
+        if ($effectiveStatus === 'blocked' || $effectiveStatus === 'blokir' || ($user instanceof User && strtolower(trim((string) ($user->status ?? ''))) === 'blokir')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator. Silakan hubungi loket Teller atau Administrator sekolah.',
+            ], 403);
+        }
+
+        if ($effectiveStatus !== 'active' && $effectiveStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi dan setoran awal di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
         }
 
         // 5. Generate Sanctum token
@@ -99,12 +134,14 @@ class AuthController extends Controller
                     'account_number' => $accountNumber,
                     'student_id'     => $user->student_id ?? null,
                     'email'          => $user->email ?? null,
+                    'status'         => $saverModel?->status ?? ($user instanceof Saver ? $user->status : ($user->status ?? 'active')),
                     'saldo'          => isset($user->saldo) ? (float) $user->saldo : null,
                 ],
                 'id'             => $user->id,
                 'name'           => $userName,
                 'account_number' => $accountNumber,
                 'student_id'     => $user->student_id ?? null,
+                'status'         => $saverModel?->status ?? ($user instanceof Saver ? $user->status : ($user->status ?? 'active')),
             ],
         ], 200);
     }

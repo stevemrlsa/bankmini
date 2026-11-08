@@ -167,8 +167,14 @@ class TransactionController extends Controller
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->first();
                 $successMessage = 'Setoran tunai berhasil. Saldo dan jurnal telah diupdate secara real-time!';
 
-                if ($saver && $saver->status === 'blocked') {
-                    throw new \Exception('Transaksi Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Transaksi setoran tidak dapat diproses.');
+                if ($saver) {
+                    $statusLower = strtolower(trim((string) ($saver->status ?? '')));
+                    if ($statusLower === 'blocked' || $statusLower === 'blokir') {
+                        throw new \Exception('Transaksi Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Transaksi setoran tidak dapat diproses.');
+                    }
+                    if ($statusLower !== 'active' && $statusLower !== 'aktif') {
+                        throw new \Exception('Transaksi Ditolak: Rekening nasabah berstatus Belum Aktif (' . ($saver->status ?: 'Inactive') . '). Silakan lakukan aktivasi rekening terlebih dahulu di menu Aktivasi Nasabah.');
+                    }
                 }
 
                 if (!$saver) {
@@ -380,10 +386,16 @@ class TransactionController extends Controller
                 // 1. Ambil data dengan lock dalam transaksi
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
-                // 2. Cek apakah rekening diblokir
-                if ($saver->status === 'blocked') {
+                // 2. Cek status keaktifan rekening
+                $statusLower = strtolower(trim((string) ($saver->status ?? '')));
+                if ($statusLower === 'blocked' || $statusLower === 'blokir') {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'account_number' => 'Penarikan Ditolak: Rekening nasabah ini sedang DIBLOKIR oleh Administrator. Penarikan dana tidak dapat diproses.'
+                    ]);
+                }
+                if ($statusLower !== 'active' && $statusLower !== 'aktif') {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'account_number' => 'Penarikan Ditolak: Rekening nasabah berstatus Belum Aktif (' . ($saver->status ?: 'Inactive') . '). Transaksi penarikan tidak dapat diproses.'
                     ]);
                 }
 
@@ -585,7 +597,16 @@ class TransactionController extends Controller
             ->first();
 
         if ($saver) {
-            $isBlocked = ($saver->status === 'blocked');
+            $statusLower = strtolower(trim((string) ($saver->status ?? '')));
+            $isBlocked = ($statusLower === 'blocked' || $statusLower === 'blokir');
+            $isInactive = ($statusLower !== 'active' && $statusLower !== 'aktif');
+            $statusMessage = 'Data nasabah berhasil ditemukan';
+            if ($isBlocked) {
+                $statusMessage = 'PERINGATAN: Rekening nasabah ini sedang DIBLOKIR oleh Administrator!';
+            } elseif ($isInactive) {
+                $statusMessage = 'PERINGATAN: Rekening nasabah ini berstatus Belum Aktif (' . ($saver->status ?: 'Inactive') . '). Transaksi hanya dapat diproses setelah aktivasi di menu Aktivasi Nasabah.';
+            }
+
             $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
             $batasMinSaldo = $settingMinSaldo ? (int)$settingMinSaldo->value : 10000;
             $maxBisaDitarik = max(0, (float)$saver->saldo - $batasMinSaldo);
@@ -605,7 +626,7 @@ class TransactionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => $isBlocked ? 'PERINGATAN: Rekening nasabah ini sedang DIBLOKIR oleh Administrator!' : 'Data nasabah berhasil ditemukan',
+                'message' => $statusMessage,
                 'data'    => [
                     'id'                     => $saver->id,
                     'account_number'         => $saver->account_number,
@@ -621,6 +642,7 @@ class TransactionController extends Controller
                     'is_member_only'         => false,
                     'status'                 => $saver->status ?? 'active',
                     'is_blocked'             => $isBlocked,
+                    'is_inactive'            => $isInactive,
                     'min_retained_balance'   => $batasMinSaldo,
                     'max_withdrawable'       => $maxBisaDitarik,
                     'formatted_max_withdraw' => 'Rp ' . number_format($maxBisaDitarik, 0, ',', '.'),

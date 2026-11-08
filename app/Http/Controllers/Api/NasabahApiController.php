@@ -53,6 +53,22 @@ class NasabahApiController extends Controller
             ], 403);
         }
 
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi loket Teller atau Administrator sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi dan setoran awal di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
+        }
+
         $saver->tokens()->delete();
 
         $token = $saver->createToken('saver-token')->plainTextToken;

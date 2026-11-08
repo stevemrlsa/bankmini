@@ -35,6 +35,22 @@ class SaverApiController extends Controller
             ], 401);
         }
 
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator. Silakan hubungi loket Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi dan setoran awal di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
+        }
+
         // Generate Sanctum token
         $token = $saver->createToken('nasabah-mobile-token')->plainTextToken;
 
@@ -69,6 +85,22 @@ class SaverApiController extends Controller
     {
         $saver = $request->user();
 
+        // Validasi keaktifan akun
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif.',
+            ], 403);
+        }
+
         $studentName = $saver->student_name ?? $saver->nama ?? 'Siswa Bank Mini';
         $gradeClass = $saver->grade_class ?? $saver->kelas ?? 'Siswa';
 
@@ -86,6 +118,7 @@ class SaverApiController extends Controller
                 'student_name'   => $studentName,
                 'kelas'          => $gradeClass,
                 'grade_class'    => $gradeClass,
+                'status'         => $saver->status ?? 'active',
                 'saldo'          => (float) $saver->saldo,
                 'created_at'     => $saver->created_at,
             ]
@@ -98,6 +131,22 @@ class SaverApiController extends Controller
     public function transactions(Request $request)
     {
         $saver = $request->user();
+
+        // Validasi keaktifan akun
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR oleh Administrator.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif.',
+            ], 403);
+        }
 
         // Ambil transaksi nasabah diurutkan dari yang terbaru
         $transactions = $saver->transactions()
@@ -164,6 +213,22 @@ class SaverApiController extends Controller
                 'success' => false,
                 'message' => 'NIS atau Nomor Rekening tidak ditemukan di sistem sekolah.',
             ], 404);
+        }
+
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
         }
 
         // Cek Rate Limiting (Maks 3 kali per jam)

@@ -42,6 +42,22 @@ class MobileAuthController extends Controller
             ], 404);
         }
 
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
+        }
+
         // Generate 6 digit random OTP
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
@@ -177,6 +193,22 @@ class MobileAuthController extends Controller
                 'success' => false,
                 'message' => 'Username atau Password salah.',
             ], 401);
+        }
+
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau loket Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi dan setoran awal di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
         }
 
         // Generate Sanctum access token baru

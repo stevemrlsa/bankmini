@@ -78,6 +78,15 @@ class TransactionApiController extends Controller
             DB::transaction(function () use ($request) {
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
+                // Validasi status keaktifan rekening
+                $statusLower = strtolower(trim((string) ($saver->status ?? '')));
+                if ($statusLower === 'blocked' || $statusLower === 'blokir') {
+                    throw new \Exception('Transaksi Ditolak: Rekening nasabah sedang DIBLOKIR oleh Administrator.', 403);
+                }
+                if ($statusLower !== 'active' && $statusLower !== 'aktif') {
+                    throw new \Exception('Transaksi Ditolak: Rekening nasabah berstatus Belum Aktif. Silakan lakukan aktivasi terlebih dahulu di loket Teller.', 403);
+                }
+
                 $transaction = Transaction::create([
                     'saver_id' => $saver->id,
                     'user_id' => $request->user()->id,
@@ -133,6 +142,15 @@ class TransactionApiController extends Controller
         try {
             DB::transaction(function () use ($request) {
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
+
+                // Validasi status keaktifan rekening
+                $statusLower = strtolower(trim((string) ($saver->status ?? '')));
+                if ($statusLower === 'blocked' || $statusLower === 'blokir') {
+                    throw new \Exception('Penarikan Ditolak: Rekening nasabah sedang DIBLOKIR oleh Administrator.', 403);
+                }
+                if ($statusLower !== 'active' && $statusLower !== 'aktif') {
+                    throw new \Exception('Penarikan Ditolak: Rekening nasabah berstatus Belum Aktif. Transaksi tidak dapat diproses.', 403);
+                }
 
                 if (!Hash::check($request->security_pin, $saver->security_pin)) {
                     throw new \Exception('Invalid security PIN', 403);

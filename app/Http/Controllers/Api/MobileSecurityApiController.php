@@ -86,6 +86,22 @@ class MobileSecurityApiController extends Controller
             ], 404);
         }
 
+        // Cek status keaktifan rekening nasabah
+        $saverStatus = strtolower(trim((string) ($targetSaver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
+        }
+
         // 2. Ambil email nasabah (dari tabel savers atau tabel users terkait)
         $email = $targetSaver->email;
         if (empty($email)) {
@@ -331,6 +347,255 @@ class MobileSecurityApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'PIN transaksi 6 digit Anda berhasil diperbarui!',
+        ], 200);
+    }
+
+    /**
+     * Request OTP to change email address for Mobile app.
+     * Validates account status, verifies current password/PIN, and sends OTP to the new email.
+     */
+    public function requestChangeEmailOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'new_email'  => 'required|email|max:255',
+            'password'   => 'required|string',
+            'identifier' => 'sometimes|string',
+        ], [
+            'new_email.required' => 'Alamat email baru wajib diisi.',
+            'new_email.email'    => 'Format alamat email baru tidak valid.',
+            'password.required'  => 'Kata sandi saat ini wajib diisi.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // Cari data nasabah dari session Sanctum atau identifier
+        $targetSaver = null;
+        $user = $request->user();
+        if (!$user && $request->bearerToken()) {
+            $user = auth('sanctum')->user();
+            if (!$user && class_exists(\Laravel\Sanctum\PersonalAccessToken::class)) {
+                $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($request->bearerToken());
+                if ($pat) {
+                    $user = $pat->tokenable;
+                }
+            }
+        }
+
+        if ($user) {
+            if ($user instanceof Saver) {
+                $targetSaver = $user;
+            } else {
+                $targetSaver = Saver::where('student_id', $user->student_id ?? '')
+                    ->orWhere('username', $user->username)
+                    ->orWhere('email', $user->email)
+                    ->orWhere('account_number', $user->account_number ?? '')
+                    ->first();
+            }
+        }
+
+        if (!$targetSaver && $request->filled('identifier')) {
+            $id = trim($request->identifier);
+            $targetSaver = Saver::where('account_number', $id)
+                ->orWhere('student_id', $id)
+                ->orWhere('username', $id)
+                ->orWhere('email', $id)
+                ->first();
+
+            if (!$targetSaver) {
+                $foundUser = User::where('username', $id)
+                    ->orWhere('email', $id)
+                    ->first();
+                if ($foundUser) {
+                    $targetSaver = Saver::where('student_id', $foundUser->student_id ?? '')
+                        ->orWhere('username', $foundUser->username)
+                        ->orWhere('email', $foundUser->email)
+                        ->first();
+                }
+            }
+        }
+
+        if (!$targetSaver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data akun nasabah tidak ditemukan.',
+            ], 404);
+        }
+
+        // Cek status keaktifan rekening nasabah
+        $saverStatus = strtolower(trim((string) ($targetSaver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif. Silakan lakukan aktivasi di loket Teller Bank Mini terlebih dahulu.',
+            ], 403);
+        }
+
+        // Cek apakah email baru sudah digunakan oleh akun nasabah lain
+        $newEmail = strtolower(trim($request->new_email));
+        $emailExists = Saver::where('email', $newEmail)
+            ->where('id', '!=', $targetSaver->id)
+            ->exists();
+        if ($emailExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alamat email tersebut sudah terdaftar pada akun nasabah lain.',
+            ], 422);
+        }
+
+        // Verifikasi kata sandi atau PIN saat ini
+        $secret = $request->password;
+        $isValidAuth = false;
+        if (!empty($targetSaver->password) && Hash::check($secret, $targetSaver->password)) {
+            $isValidAuth = true;
+        } elseif (!empty($targetSaver->security_pin) && Hash::check($secret, $targetSaver->security_pin)) {
+            $isValidAuth = true;
+        }
+
+        if (!$isValidAuth) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kata sandi akun yang Anda masukkan salah.',
+            ], 401);
+        }
+
+        // Generate 6-digit OTP
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $cacheKey = 'mobile_change_email_' . md5($newEmail);
+
+        cache()->put($cacheKey, [
+            'otp'        => $otp,
+            'saver_id'   => $targetSaver->id,
+            'new_email'  => $newEmail,
+            'expires_at' => now()->addMinutes(10)->timestamp,
+        ], now()->addMinutes(10));
+
+        // Kirim email OTP ke email baru
+        $studentName = $targetSaver->student_name ?? $targetSaver->username;
+        $emailSent = false;
+        try {
+            Mail::to($newEmail)->send(new SendOtpMail(
+                $otp,
+                $studentName,
+                'Nasabah',
+                'memverifikasi perubahan alamat email akun Bank Mini',
+                'Kode OTP Verifikasi Email Baru - Bank Mini'
+            ));
+            $emailSent = true;
+        } catch (\Throwable $e) {
+            Log::warning('Mobile Change Email OTP gagal dikirim: ' . $e->getMessage());
+        }
+
+        // Masking email baru
+        $parts = explode('@', $newEmail);
+        $namePart = $parts[0];
+        $domainPart = $parts[1] ?? '';
+        $maskedName = strlen($namePart) > 2
+            ? substr($namePart, 0, 1) . str_repeat('*', max(strlen($namePart) - 2, 3)) . substr($namePart, -1)
+            : $namePart . '***';
+        $maskedEmail = $maskedName . '@' . $domainPart;
+
+        return response()->json([
+            'success'      => true,
+            'message'      => $emailSent
+                ? 'Kode OTP verifikasi telah dikirimkan ke email ' . $maskedEmail
+                : 'Kode OTP berhasil diproses.',
+            'masked_email' => $maskedEmail,
+            'email'        => $newEmail,
+            'dev_otp'      => config('app.debug') ? $otp : null,
+            'expires_in'   => 600,
+        ], 200);
+    }
+
+    /**
+     * Verify OTP and update email address.
+     */
+    public function verifyChangeEmailOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'new_email'  => 'required|email',
+            'otp'        => 'required|digits:6',
+            'identifier' => 'sometimes|string',
+        ], [
+            'new_email.required' => 'Alamat email baru wajib diisi.',
+            'otp.required'       => 'Kode OTP wajib diisi.',
+            'otp.digits'         => 'Kode OTP harus berupa 6 digit angka.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $newEmail = strtolower(trim($request->new_email));
+        $cacheKey = 'mobile_change_email_' . md5($newEmail);
+        $cached = cache()->get($cacheKey);
+
+        $valid = false;
+        if ($cached && isset($cached['otp']) && $cached['otp'] === $request->otp) {
+            $valid = true;
+        }
+
+        if (!$valid) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode OTP salah atau telah kedaluwarsa. Silakan periksa kembali email Anda.',
+            ], 400);
+        }
+
+        $saver = Saver::find($cached['saver_id']);
+        if (!$saver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data nasabah tidak ditemukan.',
+            ], 404);
+        }
+
+        // Cek status keaktifan rekening
+        $saverStatus = strtolower(trim((string) ($saver->status ?? '')));
+        if ($saverStatus === 'blocked' || $saverStatus === 'blokir') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan Anda sedang DIBLOKIR. Silakan hubungi Administrator atau Teller sekolah.',
+            ], 403);
+        }
+
+        if ($saverStatus !== 'active' && $saverStatus !== 'aktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rekening tabungan belum aktif.',
+            ], 403);
+        }
+
+        // Update email di savers dan users
+        $saver->email = $newEmail;
+        $saver->save();
+
+        User::where('username', $saver->username)
+            ->orWhere('username', 'siswa_' . $saver->student_id)
+            ->update(['email' => $newEmail]);
+
+        cache()->forget($cacheKey);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat email akun Anda berhasil diperbarui menjadi ' . $newEmail . '!',
+            'email'   => $newEmail,
         ], 200);
     }
 }
