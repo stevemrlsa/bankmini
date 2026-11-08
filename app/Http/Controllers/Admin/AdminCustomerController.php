@@ -42,7 +42,7 @@ class AdminCustomerController extends Controller
             $query = Saver::query();
         }
 
-        // 2. Search by Student Name or NIS (student_id)
+        // 2. Search by Student Name or NIS (student_id) - Mengabaikan filter kelas saat mencari
         if ($request->filled('search')) {
             $searchTerm = trim($request->search);
             $query->where(function ($q) use ($searchTerm) {
@@ -50,10 +50,8 @@ class AdminCustomerController extends Controller
                   ->orWhere('student_id', 'like', '%' . $searchTerm . '%')
                   ->orWhere('account_number', 'like', '%' . $searchTerm . '%');
             });
-        }
-
-        // 3. Filter by Class (grade_class)
-        if ($request->filled('class')) {
+        } elseif ($request->filled('class')) {
+            // 3. Filter by Class (grade_class) - hanya aktif jika tidak sedang mencari nama/NIS
             $query->where('grade_class', $request->class);
         }
 
@@ -115,10 +113,11 @@ class AdminCustomerController extends Controller
                   ->orWhere('student_id', 'like', '%' . $searchTerm . '%')
                   ->orWhere('account_number', 'like', '%' . $searchTerm . '%');
             });
-            if ($request->filled('class')) {
-                $currentClass = trim($request->class);
-                $query->where('grade_class', $currentClass);
-            }
+            // Pencarian di seluruh kelas alumni, mengabaikan filter kelas
+            $currentClass = null;
+            $prevClass = null;
+            $nextClass = null;
+            $currentClassIndex = 0;
         } else {
             if ($classes->isNotEmpty()) {
                 $requestedClass = $request->query('class');

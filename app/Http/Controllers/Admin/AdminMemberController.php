@@ -51,17 +51,18 @@ class AdminMemberController extends Controller
         $currentClassIndex = 0;
         $totalClasses = $classes->count();
 
-        // 3. Search by Student Name or NIS (student_id)
+        // 3. Search by Student Name or NIS (student_id) - Mengabaikan opsi kelas jika sedang mencari
         if ($request->filled('search')) {
             $searchTerm = trim($request->search);
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('student_name', 'like', '%' . $searchTerm . '%')
                   ->orWhere('student_id', 'like', '%' . $searchTerm . '%');
             });
-            if ($request->filled('class')) {
-                $currentClass = trim($request->class);
-                $query->where('grade_class', $currentClass);
-            }
+            // Pencarian nama/NIS mencari di SELURUH kelas (mengabaikan filter kelas)
+            $currentClass = null;
+            $prevClass = null;
+            $nextClass = null;
+            $currentClassIndex = 0;
         } else {
             // Mode Tampilan Per Kelas (1 tabel = 1 kelas dengan tombol Kelas Sebelumnya & Selanjutnya)
             if ($classes->isNotEmpty()) {

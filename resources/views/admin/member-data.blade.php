@@ -32,16 +32,19 @@
 
     {{-- Filter & Search Form --}}
     <div class="mb-3">
-        <form action="{{ route('admin.members.index') }}" method="GET" class="row g-2 align-items-center">
+        <form action="{{ route('admin.members.index') }}" method="GET" id="memberSearchForm" class="row g-2 align-items-center" onsubmit="const s = this.querySelector('input[name=search]'); const c = this.querySelector('select[name=class]'); if(s && s.value.trim() !== '' && c) { c.disabled = true; }">
             {{-- Class Dropdown Filter --}}
             <div class="col-md-4 col-sm-6">
                 <div class="input-group">
                     <span class="input-group-text bg-white border-end-0" style="border-radius: 12px 0 0 12px;">
                         <i class="bi bi-building text-primary"></i>
                     </span>
-                    <select name="class" class="form-select border-start-0 fw-semibold" style="border-radius: 0 12px 12px 0;" onchange="this.form.submit()">
+                    <select name="class" class="form-select border-start-0 fw-semibold" style="border-radius: 0 12px 12px 0;" onchange="const s = this.form.querySelector('input[name=search]'); if(s) s.value=''; this.form.submit()">
+                        @if(request('search'))
+                            <option value="" selected>-- Semua Kelas (Pencarian Aktif) --</option>
+                        @endif
                         @foreach($classes as $classItem)
-                            <option value="{{ $classItem }}" {{ ($currentClass ?? request('class')) == $classItem ? 'selected' : '' }}>
+                            <option value="{{ $classItem }}" {{ (!request('search') && ($currentClass ?? request('class')) == $classItem) ? 'selected' : '' }}>
                                 Kelas: {{ $classItem }}
                             </option>
                         @endforeach
@@ -49,7 +52,7 @@
                 </div>
             </div>
 
-            {{-- Search Input with Physical Button --}}
+            {{-- Search Input with Physical Button (Cari di semua kelas, mengabaikan opsi kelas) --}}
             <div class="col-md-5 col-sm-6">
                 <div class="input-group">
                     <input type="text" 
@@ -76,7 +79,7 @@
     </div>
 
     {{-- Per-Class Navigation Header Bar --}}
-    @if(!request('search') && ($totalClasses ?? 0) > 0)
+    @if(!request('search') && ($totalClasses ?? 0) > 0 && !empty($currentClass))
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3 mb-3 rounded-4 border" style="background: #F8FAFC;">
             <div>
                 @if(!empty($prevClass))
@@ -110,6 +113,15 @@
                     </button>
                 @endif
             </div>
+        </div>
+    @elseif(request('search'))
+        <div class="alert alert-info py-2 px-3 rounded-4 mb-3 d-flex align-items-center justify-content-between small border-0 shadow-sm" style="background: rgba(59, 130, 246, 0.1); color: #1E40AF;">
+            <div>
+                <i class="bi bi-info-circle-fill me-1"></i> Menampilkan hasil pencarian <strong>"{{ request('search') }}"</strong> di <strong>seluruh kelas</strong> (ditemukan {{ $members->count() }} siswa).
+            </div>
+            <a href="{{ route('admin.members.index') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-semibold" style="font-size: 0.75rem;">
+                <i class="bi bi-x-circle me-1"></i> Tutup Pencarian
+            </a>
         </div>
     @endif
 

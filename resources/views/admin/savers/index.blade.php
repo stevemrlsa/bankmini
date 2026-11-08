@@ -165,14 +165,14 @@
     <!-- Toolbar: Pencarian, Filter Kelas, dan Aksi Massal -->
     <div class="toolbar-card">
         <!-- Pencarian & Filter Kelas -->
-        <form method="GET" action="{{ route('admin.savers.index') }}" class="d-flex gap-2 flex-wrap align-items-center mb-0">
-            <div class="input-group" style="max-width: 340px;">
+        <form method="GET" action="{{ route('admin.savers.index') }}" class="d-flex gap-2 flex-wrap align-items-center mb-0" onsubmit="const s = this.querySelector('input[name=search]'); const c = this.querySelector('select[name=class]'); if(s && s.value.trim() !== '' && c) { c.disabled = true; }">
+            <div class="input-group" style="max-width: 360px;">
                 <input
                     type="text"
                     name="search"
                     class="form-control"
                     style="border-radius: 12px 0 0 12px; font-size: 0.85rem; border-color: rgba(22, 35, 63, 0.12);"
-                    placeholder="Cari nama atau NIS..."
+                    placeholder="Cari nama, NIS, atau No. Rekening di semua kelas..."
                     value="{{ request('search') }}"
                 >
                 <button type="submit" class="btn btn-primary-navy" style="border-radius: 0 12px 12px 0; padding: 8px 16px;" title="Cari Data">
@@ -180,11 +180,11 @@
                 </button>
             </div>
 
-            <select name="class" class="filter-select" onchange="this.form.submit()">
-                <option value="">Semua Kelas</option>
+            <select name="class" class="filter-select" onchange="const s = this.form.querySelector('input[name=search]'); if(s) s.value=''; this.form.submit()">
+                <option value="">{{ request('search') ? '-- Semua Kelas (Pencarian Aktif) --' : 'Semua Kelas' }}</option>
                 @if(isset($classes))
                     @foreach($classes as $c)
-                        <option value="{{ $c }}" {{ request('class') == $c ? 'selected' : '' }}>{{ $c }}</option>
+                        <option value="{{ $c }}" {{ (!request('search') && request('class') == $c) ? 'selected' : '' }}>{{ $c }}</option>
                     @endforeach
                 @else
                     <option>Kelas 1</option>
