@@ -1459,4 +1459,4 @@
     @stack('scripts')
 </body>
 </html>
-<!-- Synchronized: Bank Mini SMKN 1 Bantul Complete Layout -->
+<!-- Synchronized: Bank Mini SMKN 1 Bantul Complete Layout (v2.0) -->
