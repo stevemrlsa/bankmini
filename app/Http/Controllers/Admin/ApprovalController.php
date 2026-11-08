@@ -26,20 +26,21 @@ class ApprovalController extends Controller
         try {
             $unSyncedShifts = TellerShift::whereIn('status', ['Closed', 'Approved'])->get();
             foreach ($unSyncedShifts as $shift) {
-                $shiftDate = \Carbon\Carbon::parse($shift->closed_at ?? $shift->updated_at)->toDateString();
+                $openedDate = \Carbon\Carbon::parse($shift->opened_at ?? $shift->created_at)->toDateString();
+                $closedDate = \Carbon\Carbon::parse($shift->closed_at ?? $shift->updated_at)->toDateString();
                 $exists = DailyReport::where('teller_id', $shift->user_id)
-                    ->where('report_date', $shiftDate)
+                    ->whereIn('report_date', array_unique([$openedDate, $closedDate]))
                     ->exists();
 
                 if (!$exists) {
                     DailyReport::create([
                         'teller_id'                => $shift->user_id,
-                        'report_date'              => $shiftDate,
+                        'report_date'              => $openedDate,
                         'opening_balance'          => $shift->opening_balance ?? 0,
                         'total_deposits'           => 0,
                         'total_withdrawals'        => 0,
                         'closing_balance_system'   => $shift->system_balance ?? ($shift->closing_balance ?? 0),
-                        'closing_balance_physical' => $shift->closing_balance ?? 0,
+                        'closing_balance_physical' => $shift->closing_balance,
                         'notes'                    => $shift->notes,
                         'status'                   => $shift->status === 'Approved' ? 'approved' : 'pending',
                         'admin_id'                 => $shift->approved_by,

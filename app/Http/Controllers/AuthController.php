@@ -107,9 +107,13 @@ class AuthController extends Controller
         // 3. Jika pengguna mencoba login dengan data akun Nasabah/Siswa (Nomor Rekening, NIS, atau Username Saver)
         $saver = Saver::where(function($q) use ($username) {
             $q->where('account_number', $username)
-              ->orWhere('student_id', $username)
-              ->orWhere('username', $username)
-              ->orWhere('email', $username);
+              ->orWhere('student_id', $username);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('savers', 'username')) {
+                $q->orWhere('username', $username);
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('savers', 'email')) {
+                $q->orWhere('email', $username);
+            }
         })->first();
 
         if ($saver) {

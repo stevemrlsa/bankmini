@@ -39,6 +39,14 @@ class SettingsController extends Controller
         $setting->value = $request->min_saldo_mengendap;
         $setting->save();
 
+        \App\Models\AuditLog::record(
+            'UPDATE_PENGATURAN',
+            'Pengaturan Sistem',
+            'Memperbarui batas saldo minimum mengendap menjadi Rp ' . number_format((float) $request->min_saldo_mengendap, 0, ',', '.'),
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+        );
+
         return back()->with('success', 'Konfigurasi batas saldo minimum berhasil diperbarui!');
     }
 }

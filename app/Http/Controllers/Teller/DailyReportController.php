@@ -75,6 +75,11 @@ class DailyReportController extends Controller
             $request->merge(['physical_cash' => $request->closing_balance_physical]);
         }
 
+        if ($request->has('physical_cash')) {
+            $rawPhysical = str_replace('.', '', (string) $request->input('physical_cash'));
+            $request->merge(['physical_cash' => $rawPhysical]);
+        }
+
         // 1. Validate request
         $request->validate([
             'physical_cash' => 'required|numeric',

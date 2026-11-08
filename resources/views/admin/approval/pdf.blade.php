@@ -200,7 +200,8 @@
     <!-- RINCIAN REKONSILIASI KAS LACI -->
     <div class="section-title">I. Rincian Posisi Kas &amp; Rekonsiliasi Fisik</div>
     @php
-        $selisih = ($report->closing_balance_physical ?? 0) - ($report->closing_balance_system ?? 0);
+        $isAutoReport = is_null($report->closing_balance_physical);
+        $selisih = (int) round(((float) ($report->closing_balance_physical ?? 0)) - ((float) ($report->closing_balance_system ?? 0)));
     @endphp
     <table class="table-data">
         <thead>
@@ -234,13 +235,21 @@
             <tr style="background-color: #f0fdf4;">
                 <td class="text-center">5</td>
                 <td><strong>Hasil Perhitungan Uang Fisik Nyata di Laci Kasir</strong></td>
-                <td class="text-right fw-bold" style="font-size: 12px; color: #1e3a8a;">Rp {{ number_format($report->closing_balance_physical ?? 0, 0, ',', '.') }}</td>
+                <td class="text-right fw-bold" style="font-size: 12px; color: #1e3a8a;">
+                    @if($isAutoReport)
+                        <span style="color: #b45309;">(Kosong - Input Otomatis 16:30)</span>
+                    @else
+                        Rp {{ number_format($report->closing_balance_physical ?? 0, 0, ',', '.') }}
+                    @endif
+                </td>
             </tr>
-            <tr style="background-color: {{ $selisih === 0 ? '#f8fafc' : ($selisih > 0 ? '#fefce8' : '#fef2f2') }};">
+            <tr style="background-color: {{ $isAutoReport ? '#f8fafc' : ($selisih === 0 ? '#f8fafc' : ($selisih > 0 ? '#fefce8' : '#fef2f2')) }};">
                 <td class="text-center">6</td>
                 <td><strong>Selisih Kas (Fisik Laci - Sistem)</strong></td>
                 <td class="text-right fw-bold" style="font-size: 12px;">
-                    @if($selisih === 0)
+                    @if($isAutoReport)
+                        <span style="color: #64748b;">Menunggu Verifikasi Fisik Manual</span>
+                    @elseif($selisih === 0)
                         <span style="color: #15803d;">Rp 0 (SEIMBANG / MATCH)</span>
                     @elseif($selisih > 0)
                         <span style="color: #b45309;">+ Rp {{ number_format($selisih, 0, ',', '.') }} (LEBIH)</span>

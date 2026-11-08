@@ -63,11 +63,13 @@ class NotificationService
 
         foreach ($pendingReports as $report) {
             $tellerName = $report->teller->officer_name ?? $report->teller->username ?? 'Teller';
-            $diff = $report->closing_balance_physical - $report->closing_balance_system;
-            $hasDiff = ($diff !== 0);
+            $isAutoReport = is_null($report->closing_balance_physical);
+            $fisik = (float) ($report->closing_balance_physical ?? 0);
+            $sistem = (float) ($report->closing_balance_system ?? 0);
+            $diff = (int) round($fisik - $sistem);
 
             $diffText = '';
-            if ($hasDiff) {
+            if (!$isAutoReport && $diff !== 0) {
                 $sign = $diff > 0 ? '+' : '-';
                 $diffText = ' • Selisih: ' . $sign . 'Rp ' . number_format(abs($diff), 0, ',', '.');
             }
@@ -75,11 +77,15 @@ class NotificationService
             $notifId = 'pending_report_' . $report->id;
             $isUnread = !in_array($notifId, $readIds);
 
+            $msgText = $isAutoReport
+                ? 'Laporan otomatis 16:30 (Kas Sistem Rp ' . number_format($sistem, 0, ',', '.') . ' • Fisik laci dikosongkan) pada ' . Carbon::parse($report->report_date)->translatedFormat('d M Y') . '.'
+                : 'Menunggu verifikasi penutupan kas Rp ' . number_format($fisik, 0, ',', '.') . $diffText . ' (' . Carbon::parse($report->report_date)->translatedFormat('d M Y') . ').';
+
             $notifications->push([
                 'id'          => $notifId,
                 'type'        => 'pending_approval',
                 'title'       => 'Laporan Kas Masuk: ' . $tellerName,
-                'message'     => 'Menunggu verifikasi penutupan kas Rp ' . number_format($report->closing_balance_physical, 0, ',', '.') . $diffText . ' (' . Carbon::parse($report->report_date)->translatedFormat('d M Y') . ').',
+                'message'     => $msgText,
                 'time'        => $report->created_at ? $report->created_at->diffForHumans() : 'Hari ini',
                 'raw_time'    => $report->created_at ?? now(),
                 'status'      => 'pending',
@@ -104,6 +110,7 @@ class NotificationService
         foreach ($recentResolved as $report) {
             $tellerName = $report->teller->officer_name ?? $report->teller->username ?? 'Teller';
             $isApproved = ($report->status === 'approved');
+            $fisikVal = (float) ($report->closing_balance_physical ?? $report->closing_balance_system ?? 0);
 
             $notifId = 'resolved_report_' . $report->id;
 
@@ -112,7 +119,7 @@ class NotificationService
                 'type'        => $isApproved ? 'report_approved' : 'report_rejected',
                 'title'       => $isApproved ? 'Kas Disetujui (' . $tellerName . ')' : 'Kas Ditolak (' . $tellerName . ')',
                 'message'     => $isApproved
-                    ? 'Penutupan kas Rp ' . number_format($report->closing_balance_physical, 0, ',', '.') . ' telah disetujui & dipindahkan ke Brankas.'
+                    ? 'Penutupan kas Rp ' . number_format($fisikVal, 0, ',', '.') . ' telah disetujui & dipindahkan ke Brankas.'
                     : 'Penutupan kas ditolak. Catatan: ' . ($report->notes ? \Illuminate\Support\Str::limit($report->notes, 40) : '-'),
                 'time'        => $report->approval_at ? Carbon::parse($report->approval_at)->diffForHumans() : 'Hari ini',
                 'raw_time'    => $report->approval_at ? Carbon::parse($report->approval_at) : $report->updated_at,
@@ -179,12 +186,15 @@ class NotificationService
                 }
             }
 
+            $fisikTeller = (float) ($report->closing_balance_physical ?? $report->closing_balance_system ?? 0);
+            $isAutoTeller = is_null($report->closing_balance_physical);
+
             if ($report->status === 'approved') {
                 $notifications->push([
                     'id'          => $notifId,
                     'type'        => 'report_approved',
                     'title'       => 'Laporan Kas Disetujui',
-                    'message'     => 'Laporan kas fisik Rp ' . number_format($report->closing_balance_physical, 0, ',', '.') . ' tanggal ' . Carbon::parse($report->report_date)->translatedFormat('d M Y') . ' telah disetujui oleh ' . $adminName . '. Dana telah masuk ke Brankas Utama.',
+                    'message'     => 'Laporan kas Rp ' . number_format($fisikTeller, 0, ',', '.') . ' tanggal ' . Carbon::parse($report->report_date)->translatedFormat('d M Y') . ' telah disetujui oleh ' . $adminName . '.',
                     'time'        => $report->approval_at ? Carbon::parse($report->approval_at)->diffForHumans() : $report->updated_at->diffForHumans(),
                     'raw_time'    => $report->approval_at ? Carbon::parse($report->approval_at) : $report->updated_at,
                     'status'      => 'approved',
@@ -218,8 +228,10 @@ class NotificationService
                 $notifications->push([
                     'id'          => $notifId,
                     'type'        => 'report_pending',
-                    'title'       => 'Laporan Kas Terkirim',
-                    'message'     => 'Laporan penutupan kas Rp ' . number_format($report->closing_balance_physical, 0, ',', '.') . ' sedang menunggu verifikasi & approval dari Administrator.',
+                    'title'       => $isAutoTeller ? 'Laporan Kas Otomatis (16:30)' : 'Laporan Kas Terkirim',
+                    'message'     => $isAutoTeller
+                        ? 'Laporan kas otomatis 16:30 (Saldo Sistem Rp ' . number_format($fisikTeller, 0, ',', '.') . ') sedang menunggu verifikasi fisik Administrator.'
+                        : 'Laporan penutupan kas Rp ' . number_format($fisikTeller, 0, ',', '.') . ' sedang menunggu verifikasi & approval dari Administrator.',
                     'time'        => $report->created_at ? $report->created_at->diffForHumans() : 'Hari ini',
                     'raw_time'    => $report->created_at ?? now(),
                     'status'      => 'pending',

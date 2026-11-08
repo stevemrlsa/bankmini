@@ -119,9 +119,9 @@
                         @forelse($reports as $report)
                             @php
                                 $isAutoReport = is_null($report->closing_balance_physical);
-                                $fisik = $report->closing_balance_physical ?? 0;
-                                $sistem = $report->closing_balance_system ?? 0;
-                                $diff = $fisik - $sistem;
+                                $fisik = (float) ($report->closing_balance_physical ?? 0);
+                                $sistem = (float) ($report->closing_balance_system ?? 0);
+                                $diff = (int) round($fisik - $sistem);
                                 $timeStr = $report->created_at ? \Carbon\Carbon::parse($report->created_at)->timezone('Asia/Jakarta')->format('H:i') : null;
                             @endphp
                             <tr style="border-bottom: 1px solid #F1F5F9;">

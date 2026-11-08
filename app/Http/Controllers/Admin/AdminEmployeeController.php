@@ -89,6 +89,14 @@ class AdminEmployeeController extends Controller
             ]);
         });
 
+        \App\Models\AuditLog::record(
+            'TAMBAH_PEGAWAI',
+            'Manajemen Pegawai',
+            "Menambahkan pegawai baru: {$validated['officer_name']} ({$validated['role']}, @{$validated['username']})",
+            Auth::id(),
+            Auth::user()?->officer_name ?? Auth::user()?->username ?? 'Administrator'
+        );
+
         return redirect()->route('admin.users.index')
             ->with('success', 'Data pegawai baru berhasil ditambahkan.');
     }
@@ -124,6 +132,14 @@ class AdminEmployeeController extends Controller
             ]);
         }
 
+        \App\Models\AuditLog::record(
+            'UPDATE_PEGAWAI',
+            'Manajemen Pegawai',
+            "Memperbarui data pegawai: {$user->officer_name} ({$user->role}, @{$user->username})",
+            Auth::id(),
+            Auth::user()?->officer_name ?? Auth::user()?->username ?? 'Administrator'
+        );
+
         return redirect()->route('admin.users.index')
             ->with('success', 'Data pegawai ' . $user->officer_name . ' berhasil diperbarui.');
     }
@@ -141,7 +157,16 @@ class AdminEmployeeController extends Controller
         }
 
         $officerName = $user->officer_name;
+        $officerRole = $user->role;
         $user->delete();
+
+        \App\Models\AuditLog::record(
+            'HAPUS_PEGAWAI',
+            'Manajemen Pegawai',
+            "Menghapus permanen akun pegawai: {$officerName} ({$officerRole})",
+            Auth::id(),
+            Auth::user()?->officer_name ?? Auth::user()?->username ?? 'Administrator'
+        );
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Akun pegawai ' . $officerName . ' berhasil dihapus permanen.');
@@ -164,6 +189,14 @@ class AdminEmployeeController extends Controller
 
         $actionText = ($user->status === 'Aktif') ? 'dibuka blokirnya' : 'diblokir';
 
+        \App\Models\AuditLog::record(
+            $user->status === 'Aktif' ? 'BUKA_BLOKIR_PEGAWAI' : 'BLOKIR_PEGAWAI',
+            'Manajemen Pegawai',
+            "Mengubah status akun pegawai {$user->officer_name} menjadi {$user->status}",
+            Auth::id(),
+            Auth::user()?->officer_name ?? Auth::user()?->username ?? 'Administrator'
+        );
+
         return redirect()->back()
             ->with('success', 'Status akun ' . $user->officer_name . ' berhasil ' . $actionText . '.');
     }
@@ -176,6 +209,14 @@ class AdminEmployeeController extends Controller
         $user = User::findOrFail($id);
         $user->status = 'Aktif';
         $user->save();
+
+        \App\Models\AuditLog::record(
+            'BUKA_BLOKIR_PEGAWAI',
+            'Manajemen Pegawai',
+            "Membuka blokir akun pegawai {$user->officer_name}",
+            Auth::id(),
+            Auth::user()?->officer_name ?? Auth::user()?->username ?? 'Administrator'
+        );
 
         return redirect()->back()
             ->with('success', 'Akun pegawai ' . $user->officer_name . ' berhasil dibuka blokirnya.');

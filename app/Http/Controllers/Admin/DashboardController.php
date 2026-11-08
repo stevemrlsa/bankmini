@@ -25,10 +25,11 @@ class DashboardController extends Controller
 
         $totalSaldo = (float) (Saver::sum('saldo') ?? 0);
 
-        $transaksiHariIni = Transaction::where(function ($q) {
-            $q->whereDate('created_at', today())
-              ->orWhereDate('transaction_date', today());
-        })->count();
+        $transaksiHariIni = Transaction::where('transaction_type', '!=', 'Vault_Transfer')
+            ->where(function ($q) {
+                $q->whereDate('created_at', today())
+                  ->orWhereDate('transaction_date', today());
+            })->count();
 
         $countAdmin = User::whereIn('role', ['Administrator', 'Admin', 'Admin Utama', 'admin_utama', 'Supervisor'])->count();
         $countTeller = User::where('role', 'Teller')->count();
@@ -48,8 +49,9 @@ class DashboardController extends Controller
     {
         $stats = $this->getStatsData();
 
-        // Transaksi Terbaru (5 terakhir)
+        // Transaksi Terbaru (5 terakhir nasabah)
         $latestTransactions = Transaction::with(['saver', 'user'])
+            ->where('transaction_type', '!=', 'Vault_Transfer')
             ->latest()
             ->take(5)
             ->get();
@@ -66,6 +68,7 @@ class DashboardController extends Controller
     {
         $stats = $this->getStatsData();
         $latestTransactions = Transaction::with(['saver'])
+            ->where('transaction_type', '!=', 'Vault_Transfer')
             ->latest()
             ->take(5)
             ->get()
@@ -77,7 +80,7 @@ class DashboardController extends Controller
                     'grade_class'  => $tx->saver->grade_class ?? $tx->saver->student_id ?? '-',
                     'is_deposit'   => $isDeposit,
                     'type_label'   => $isDeposit ? 'Setoran tunai' : 'Penarikan tunai',
-                    'time'         => $tx->created_at ? $tx->created_at->format('H:i') : '-',
+                    'time'         => $tx->created_at ? $tx->created_at->timezone('Asia/Jakarta')->format('H:i') . ' WIB' : '-',
                     'amount_fmt'   => ($isDeposit ? '+Rp ' : '-Rp ') . number_format($tx->amount, 0, ',', '.'),
                 ];
             });
@@ -149,7 +152,8 @@ class DashboardController extends Controller
      */
     public function transactions(Request $request)
     {
-        $query = Transaction::with(['saver', 'user']);
+        $query = Transaction::with(['saver', 'user'])
+            ->where('transaction_type', '!=', 'Vault_Transfer');
 
         // Filter Tanggal (Default: menampilkan semua jika tidak difilter, atau sesuai parameter date)
         if ($request->filled('date')) {

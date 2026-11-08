@@ -56,10 +56,10 @@ class JournalController extends Controller
         $journals = $query->orderBy('accounting_journals.created_at', 'desc')->get();
 
         // Hitung total Debit dan Kredit dari data yang terfilter
-        $totalDebit  = $journals->where('position', 'Debit')->sum('amount');
-        $totalCredit = $journals->where('position', 'Credit')->sum('amount');
-        $isBalanced  = ($totalDebit === $totalCredit);
+        $totalDebit  = (float) $journals->where('position', 'Debit')->sum('amount');
+        $totalCredit = (float) $journals->where('position', 'Credit')->sum('amount');
         $diff        = abs($totalDebit - $totalCredit);
+        $isBalanced  = ($diff < 0.01);
 
         // Akun-akun resmi Bank Mini
         $accountNames = [
@@ -126,9 +126,9 @@ class JournalController extends Controller
 
         $journals = $query->orderBy('accounting_journals.created_at', 'asc')->get();
 
-        $totalDebit  = $journals->where('position', 'Debit')->sum('amount');
-        $totalCredit = $journals->where('position', 'Credit')->sum('amount');
-        $isBalanced  = ($totalDebit === $totalCredit);
+        $totalDebit  = (float) $journals->where('position', 'Debit')->sum('amount');
+        $totalCredit = (float) $journals->where('position', 'Credit')->sum('amount');
+        $isBalanced  = (abs($totalDebit - $totalCredit) < 0.01);
 
         $accountNames = [
             '101' => 'Kas di Loket Teller (Cash in Drawer)',

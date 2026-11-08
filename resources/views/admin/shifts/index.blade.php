@@ -58,9 +58,9 @@
                     <tbody>
                         @forelse($shifts as $shift)
                             @php
-                                $fisik = $shift->closing_balance ?? 0;
-                                $sistem = $shift->system_balance ?? 0;
-                                $selisih = $fisik - $sistem;
+                                $fisik = (float) ($shift->closing_balance ?? 0);
+                                $sistem = (float) ($shift->system_balance ?? 0);
+                                $selisih = (int) round($fisik - $sistem);
                             @endphp
                             <tr style="border-bottom: 1px solid #F1F5F9;">
                                 {{-- Tanggal --}}

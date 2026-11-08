@@ -91,7 +91,8 @@ class TransactionController extends Controller
             ]);
 
             try {
-                DB::transaction(function () use ($request) {
+                $saver = null;
+                DB::transaction(function () use ($request, &$saver) {
                     // 2. Generate No Rekening otomatis (Tahun + 4 digit urutan)
                     $accountNumber = date('Y') . str_pad(Saver::count() + 1, 4, '0', STR_PAD_LEFT);
 
@@ -138,6 +139,14 @@ class TransactionController extends Controller
                     ]);
                 });
 
+                \App\Models\AuditLog::record(
+                    'AKTIVASI_REKENING',
+                    'Aktivasi Rekening',
+                    "Aktivasi rekening baru {$saver?->student_name} (Rek: {$saver?->account_number}) dengan setoran awal Rp " . number_format($request->initial_deposit, 0, ',', '.') . " berhasil.",
+                    auth()->id(),
+                    auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+                );
+
                 return redirect()->back()->with('success', 'Rekening berhasil diaktivasi dan setoran awal berhasil dicatat!');
 
             } catch (\Exception $e) {
@@ -151,7 +160,9 @@ class TransactionController extends Controller
         ]);
 
         try {
-            DB::transaction(function () use ($request, &$successMessage) {
+            $saver = null;
+            $successMessage = null;
+            DB::transaction(function () use ($request, &$successMessage, &$saver) {
                 // Try finding by account_number in savers
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->first();
                 $successMessage = 'Setoran tunai berhasil. Saldo dan jurnal telah diupdate secara real-time!';
@@ -359,7 +370,8 @@ class TransactionController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request) {
+            $saver = null;
+            DB::transaction(function () use ($request, &$saver) {
                 // 1. Ambil data dengan lock dalam transaksi
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
@@ -480,6 +492,14 @@ class TransactionController extends Controller
         $saver->update([
             'security_pin' => Hash::make('123456')
         ]);
+
+        \App\Models\AuditLog::record(
+            'RESET_PIN_NASABAH',
+            'Keamanan Nasabah',
+            "Mereset PIN keamanan nasabah {$saver->student_name} (Rek: {$saver->account_number}) ke default 123456.",
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+        );
 
         return back()->with('success', 'PIN untuk nasabah ' . $saver->student_name . ' (' . $saver->account_number . ') berhasil direset menjadi 123456.');
     }
