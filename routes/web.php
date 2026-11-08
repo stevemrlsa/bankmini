@@ -46,6 +46,17 @@ Route::get('/', function () {
     return view('landing');
 })->name('landing');
 
+Route::get('/download-apk', function () {
+    $apkPath = public_path('downloads/bankmini-nasabah.apk');
+    if (!file_exists($apkPath)) {
+        abort(404, 'Berkas APK Bank Mini Nasabah belum tersedia untuk diunduh.');
+    }
+    return response()->download($apkPath, 'BankMini-Nasabah.apk', [
+        'Content-Type' => 'application/vnd.android.package-archive',
+        'Cache-Control' => 'no-cache, private',
+    ]);
+})->name('download.apk');
+
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

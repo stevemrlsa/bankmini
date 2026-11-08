@@ -1368,6 +1368,14 @@
                             <span class="small fw-bold text-dark">BankMini-Nasabah.apk</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Ukuran Berkas:</span>
+                            <span class="small fw-bold text-dark">~50.0 MB</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Versi Rilis:</span>
+                            <span class="small fw-bold text-success"><i class="bi bi-patch-check-fill me-1"></i>v1.0.0 (Release)</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="small text-muted">Kompatibilitas:</span>
                             <span class="small fw-semibold text-dark">Android 8.0 (Oreo) ke atas</span>
                         </div>
@@ -1384,7 +1392,7 @@
                         </div>
                     </div>
 
-                    <a href="{{ asset('downloads/bankmini-nasabah.apk') }}" class="btn w-100 py-3 fw-bold text-white shadow-sm d-flex align-items-center justify-content-center gap-2" style="background: var(--primary-navy); border-radius: 14px;" download>
+                    <a href="{{ route('download.apk') }}" class="btn w-100 py-3 fw-bold text-white shadow-sm d-flex align-items-center justify-content-center gap-2" style="background: var(--primary-navy); border-radius: 14px;" download="BankMini-Nasabah.apk">
                         <i class="bi bi-download fs-5"></i> Unduh Berkas APK Sekarang
                     </a>
                 </div>

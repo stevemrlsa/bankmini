@@ -281,3 +281,4 @@ class WithdrawalRequestController extends Controller
         return back()->with('success', "Janjian penarikan {$withdrawal->request_code} berhasil dibatalkan.");
     }
 }
+
