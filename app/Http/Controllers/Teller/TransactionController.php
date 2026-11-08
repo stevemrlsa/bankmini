@@ -321,7 +321,12 @@ class TransactionController extends Controller
             $uangFisikDiLaci = (float) $activeShift->opening_balance + $totalSetoran - $totalPenarikan;
         }
 
-        return view('teller.penarikan', compact('activeShift', 'uangFisikDiLaci'));
+        $prefilledRequest = null;
+        if (request()->filled('request_id')) {
+            $prefilledRequest = \App\Models\WithdrawalRequest::with('saver')->where('status', 'approved')->find(request('request_id'));
+        }
+
+        return view('teller.penarikan', compact('activeShift', 'uangFisikDiLaci', 'prefilledRequest'));
     }
 
     public function storePenarikan(Request $request)
@@ -418,18 +423,29 @@ class TransactionController extends Controller
                 }
 
                 // 5. Aturan Penarikan Tunai: Reguler (Maks Rp 1.000.000/hari) vs Janjian Dana Besar (> Rp 1.000.000)
-                if ($request->amount > 1000000) {
-                    // Penarikan di atas 1 Jt: WAJIB memiliki Janjian Penarikan Dana Besar yang disetujui (minimal H-1)
-                    $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
-                        ->where('status', 'approved')
-                        ->whereDate('scheduled_date', '<=', today())
-                        ->where('amount', '>=', $request->amount)
-                        ->latest()
-                        ->first();
+                if ($request->amount > 1000000 || $request->filled('withdrawal_request_id')) {
+                    // Penarikan di atas 1 Jt atau pencairan janjian penarikan:
+                    // 1. Cek apakah ada ID janjian spesifik yang dikirim dari form (withdrawal_request_id)
+                    if ($request->filled('withdrawal_request_id')) {
+                        $withdrawalReq = \App\Models\WithdrawalRequest::where('id', $request->withdrawal_request_id)
+                            ->where('saver_id', $saver->id)
+                            ->where('status', 'approved')
+                            ->first();
+                    }
 
+                    // 2. Jika belum ditemukan, cari janjian approved untuk saver ini yang nominalnya mencukupi
                     if (!$withdrawalReq) {
+                        $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                            ->where('status', 'approved')
+                            ->where('amount', '>=', $request->amount)
+                            ->latest()
+                            ->first();
+                    }
+
+                    // 3. Jika nominal penarikan di atas Rp 1.000.000 dan tidak ditemukan pengajuan janjian yang disetujui
+                    if ($request->amount > 1000000 && !$withdrawalReq) {
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            'amount' => 'Penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1 dan telah disetujui oleh Teller dan Administrator. Tidak ditemukan pengajuan janjian yang telah disetujui untuk rekening ini pada hari ini.'
+                            'amount' => 'Penarikan di atas Rp 1.000.000 wajib membuat Janjian Penarikan Dana Besar minimal H-1 dan telah disetujui oleh Teller dan Administrator. Tidak ditemukan pengajuan janjian yang telah disetujui untuk rekening ini.'
                         ]);
                     }
                 } else {
@@ -618,11 +634,19 @@ class TransactionController extends Controller
                 ->sum('amount');
             $remainingDailyQuota = max(0, 1000000 - $todayWithdrawn);
 
-            $approvedRequest = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
-                ->where('status', 'approved')
-                ->whereDate('scheduled_date', '<=', today())
-                ->latest()
-                ->first();
+            $approvedRequest = null;
+            if ($request->filled('request_id')) {
+                $approvedRequest = \App\Models\WithdrawalRequest::where('id', $request->request_id)
+                    ->where('saver_id', $saver->id)
+                    ->where('status', 'approved')
+                    ->first();
+            }
+            if (!$approvedRequest) {
+                $approvedRequest = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                    ->where('status', 'approved')
+                    ->latest()
+                    ->first();
+            }
 
             return response()->json([
                 'success' => true,
@@ -654,7 +678,7 @@ class TransactionController extends Controller
                         'amount'         => (float) $approvedRequest->amount,
                         'formatted_amount'=> 'Rp ' . number_format($approvedRequest->amount, 0, ',', '.'),
                         'purpose'        => $approvedRequest->purpose,
-                        'scheduled_date' => $approvedRequest->scheduled_date->format('d/m/Y'),
+                        'scheduled_date' => \Carbon\Carbon::parse($approvedRequest->scheduled_date)->format('d/m/Y'),
                     ] : null,
                 ]
             ], 200);

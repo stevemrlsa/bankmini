@@ -341,11 +341,15 @@
                                     </form>
                                 @endif
 
-                                {{-- Tombol Langsung Cairkan (Jika Teller & Status Approved & Tanggal Janjian Tiba) --}}
+                                {{-- Tombol Langsung Cairkan (Jika Teller & Status Approved) --}}
                                 @if($isTeller && $req->status === 'approved')
-                                    <a href="{{ route('teller.penarikan.create') }}?account_number={{ $req->saver->account_number ?? $req->saver->student_id }}&amount={{ (int)$req->amount }}&request_id={{ $req->id }}" class="btn btn-sm btn-success px-2 py-1 fw-semibold" style="font-size: 0.76rem; border-radius: 8px;">
+                                    <a href="{{ route('teller.penarikan.create') }}?account_number={{ $req->saver->account_number ?? $req->saver->student_id }}&amount={{ (int)$req->amount }}&request_id={{ $req->id }}" class="btn btn-sm btn-success px-2 py-1 fw-semibold shadow-sm" style="font-size: 0.76rem; border-radius: 8px;">
                                         <i class="bi bi-cash me-1"></i> Cairkan Uang
                                     </a>
+                                @elseif($isAdmin && $req->status === 'approved')
+                                    <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.72rem;">
+                                        <i class="bi bi-clock-history me-1"></i>Menunggu Teller
+                                    </span>
                                 @endif
 
                                 {{-- Tombol Tolak --}}

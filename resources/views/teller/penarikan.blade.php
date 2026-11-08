@@ -378,6 +378,25 @@
             </div>
             @endif
 
+            <!-- Banner Notifikasi Jika Pencairan Berdasarkan Janjian Penarikan Dana Besar -->
+            @if(isset($prefilledRequest) && $prefilledRequest)
+            <div id="bannerJanjianPenarikan" class="alert alert-success d-flex align-items-center justify-content-between p-3 rounded-4 mb-3 border-0 shadow-sm" style="background: rgba(16, 185, 129, 0.12); color: #065F46;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-patch-check-fill fs-3 text-success"></i>
+                    <div>
+                        <strong class="d-block" style="font-size: 0.88rem;">Pencairan Janjian Dana Besar ({{ $prefilledRequest->request_code }})</strong>
+                        <small class="text-secondary" style="font-size: 0.76rem;">
+                            Nominal Disetujui: <strong class="text-success">Rp {{ number_format($prefilledRequest->amount, 0, ',', '.') }}</strong>
+                            @if($prefilledRequest->purpose)
+                                · {{ $prefilledRequest->purpose }}
+                            @endif
+                        </small>
+                    </div>
+                </div>
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill" style="font-size: 0.72rem;">Disetujui Penuh</span>
+            </div>
+            @endif
+
             <!-- Dynamic Scanned / Fetched Student Preview Card -->
             <div id="studentPreviewCard" class="saver-preview-card d-none">
                 <div class="avatar-box" id="previewAvatar">A</div>
@@ -393,6 +412,9 @@
 
             <form id="withdrawalForm" method="POST" action="{{ route('teller.penarikan.store') }}">
                 @csrf
+
+                <!-- Hidden Input ID Janjian Penarikan jika dicairkan via Janjian -->
+                <input type="hidden" name="withdrawal_request_id" id="withdrawal_request_id" value="{{ old('withdrawal_request_id', $prefilledRequest->id ?? request('request_id')) }}">
 
                 <!-- 1. Input Nomor Rekening dengan Tombol Scan QR -->
                 <div class="field-group">
@@ -478,7 +500,7 @@
                             step="500"
                             class="field-input with-prefix @error('amount') is-invalid @enderror"
                             placeholder="0"
-                            value="{{ old('amount') }}"
+                            value="{{ old('amount', (isset($prefilledRequest) && $prefilledRequest) ? (int)$prefilledRequest->amount : request('amount')) }}"
                             required
                         >
                     </div>
@@ -831,7 +853,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const helper = document.getElementById('accountHelperText');
             helper.innerHTML = '<span class="text-warning"><span class="spinner-border spinner-border-sm me-1"></span> Mengambil data nasabah...</span>';
 
-            const url = `{{ route('teller.search-saver') }}?q=${encodeURIComponent(identifier)}`;
+            const reqIdParam = document.getElementById('withdrawal_request_id')?.value || urlParams.get('request_id') || '';
+            const url = `{{ route('teller.search-saver') }}?q=${encodeURIComponent(identifier)}` + (reqIdParam ? `&request_id=${encodeURIComponent(reqIdParam)}` : '');
             const response = await fetch(url, {
                 headers: {
                     'Accept': 'application/json',
@@ -884,10 +907,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     if (saver.approved_request) {
                         const ar = saver.approved_request;
+                        const reqIdField = document.getElementById('withdrawal_request_id');
+                        if (reqIdField && !reqIdField.value) {
+                            reqIdField.value = ar.id;
+                        }
                         infoHtml += `<div class="mt-2 p-2 rounded-3 bg-warning-subtle border border-warning small text-dark d-flex align-items-center justify-content-between">
                             <div><i class="bi bi-calendar-check-fill text-warning me-1"></i> <strong>Janjian Dana Besar (${ar.request_code}):</strong> Rp ${Number(ar.amount).toLocaleString('id-ID')}</div>
-                            <button type="button" class="btn btn-sm btn-dark py-0 px-2 fw-semibold" style="font-size:0.74rem;" onclick="document.getElementById('amount').value = ${ar.amount};">Gunakan Nominal Ini</button>
+                            <button type="button" class="btn btn-sm btn-dark py-0 px-2 fw-semibold" style="font-size:0.74rem;" onclick="document.getElementById('amount').value = ${ar.amount}; if(document.getElementById('withdrawal_request_id')) document.getElementById('withdrawal_request_id').value = ${ar.id};">Gunakan Nominal Ini</button>
                         </div>`;
+
+                        // Otomatis terapkan nominal pengajuan jika amountInput masih kosong atau 0
+                        if (!amountInput.value || amountInput.value === '0') {
+                            amountInput.value = ar.amount;
+                        }
                     }
                     helper.innerHTML += infoHtml;
                 }
@@ -895,7 +927,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 4. Munculkan Tombol Reset / Batal
                 btnResetAccount.classList.remove('d-none');
 
-                // 5. Otomatis Fokus ke Field Nominal Penarikan
+                // 5. Pastikan parameter URL amount dipertahankan jika ada
+                const paramAmount = urlParams.get('amount');
+                if (paramAmount) {
+                    amountInput.value = paramAmount;
+                }
+
+                // 6. Otomatis Fokus ke Field Nominal Penarikan
                 setTimeout(() => {
                     amountInput.focus();
                     amountInput.select();
@@ -940,6 +978,11 @@ document.addEventListener('DOMContentLoaded', function () {
         studentNameDisplay.value = '';
         currentBalanceDisplay.value = '';
         amountInput.value = '';
+        if (document.getElementById('withdrawal_request_id')) {
+            document.getElementById('withdrawal_request_id').value = '';
+        }
+        const bannerReq = document.getElementById('bannerJanjianPenarikan');
+        if (bannerReq) bannerReq.style.display = 'none';
 
         document.getElementById('accountHelperText').textContent = 'Masukkan nomor rekening nasabah yang akan melakukan penarikan.';
         accInput.focus();
@@ -1054,9 +1097,19 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Auto-search jika ada parameter ?account_number= di URL (misal dari dashboard)
+    // Auto-search jika ada parameter di URL (misal dari dashboard atau Janjian Penarikan)
     const urlParams = new URLSearchParams(window.location.search);
     const initialAcc = urlParams.get('account_number') || accInput.value.trim();
+    const initialAmount = urlParams.get('amount');
+    const initialReqId = urlParams.get('request_id');
+
+    if (initialReqId && document.getElementById('withdrawal_request_id')) {
+        document.getElementById('withdrawal_request_id').value = initialReqId;
+    }
+    if (initialAmount) {
+        amountInput.value = initialAmount;
+    }
+
     if (initialAcc) {
         fetchSaverData(initialAcc, true);
     }
