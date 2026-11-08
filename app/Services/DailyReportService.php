@@ -26,14 +26,18 @@ class DailyReportService
         $todayDate = $now->toDateString();
 
         // Cari shift kasir yang masih 'Open'
-        // Kriteria:
-        // 1. Shift yang dibuka di hari sebelumnya dan belum ditutup
-        // 2. ATAU Shift hari ini jika waktu sudah mencapai / melewati pukul 16:30
+        // Kriteria aman:
+        // 1. Shift yang dibuka di hari-hari sebelumnya dan tertinggal belum ditutup
+        // 2. ATAU Shift hari ini yang DIBUKA SEBELUM pukul 16:30 jika saat ini sudah >= 16:30
+        // (Shift yang baru dibuka setelah pukul 16:30 TIDAK AKAN ditutup otomatis agar teller tetap bisa bertugas)
         $openShifts = TellerShift::where('status', 'Open')
             ->where(function ($q) use ($todayDate, $currentTime) {
                 $q->whereDate('opened_at', '<', $todayDate);
                 if ($currentTime >= '16:30') {
-                    $q->orWhereDate('opened_at', $todayDate);
+                    $q->orWhere(function ($todayQ) use ($todayDate) {
+                        $todayQ->whereDate('opened_at', $todayDate)
+                               ->whereTime('opened_at', '<', '16:30:00');
+                    });
                 }
             })
             ->get();

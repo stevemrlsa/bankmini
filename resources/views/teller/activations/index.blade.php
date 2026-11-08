@@ -100,7 +100,7 @@
 
         {{-- Filter & Search Form --}}
         <div class="mb-3">
-            <form action="{{ route('teller.activations.index') }}" method="GET" class="row g-2 align-items-center">
+            <form action="{{ route('teller.activations.index') }}" method="GET" id="activationSearchForm" class="row g-2 align-items-center" onsubmit="const s = this.querySelector('input[name=search]'); const c = this.querySelector('select[name=class]'); if(s && s.value.trim() !== '' && c) { c.disabled = true; }">
                 {{-- Class Filter --}}
                 <div class="col-md-4 col-sm-6">
                     <div class="input-group">

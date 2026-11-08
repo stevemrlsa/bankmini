@@ -306,7 +306,7 @@
         @if(method_exists($savers, 'hasPages') && $savers->hasPages())
             <div class="pagination-note border-top">
                 <span>Menampilkan {{ $savers->firstItem() }}–{{ $savers->lastItem() }} dari {{ $savers->total() }} nasabah aktif</span>
-                <div>{{ $savers->links() }}</div>
+                <div>{{ $savers->links('pagination::bootstrap-5') }}</div>
             </div>
         @endif
     </div>

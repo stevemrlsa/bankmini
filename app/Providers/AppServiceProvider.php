@@ -6,6 +6,7 @@ use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Gunakan Bootstrap 5 Pagination di seluruh aplikasi (mencegah SVG raksasa Tailwind)
+        Paginator::useBootstrapFive();
+
         // Pastikan timezone dan locale aplikasi selalu selaras dengan Waktu Indonesia Barat (WIB)
         date_default_timezone_set(config('app.timezone', 'Asia/Jakarta'));
         \Carbon\Carbon::setLocale(config('app.locale', 'id'));

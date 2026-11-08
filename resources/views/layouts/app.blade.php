@@ -219,7 +219,7 @@
             gap: 12px;
             color: rgba(255, 255, 255, 0.80);
             height: 46px;
-            padding: 3px 18px 0 18px;
+            padding: 4px 18px 0 18px;
             margin-right: -6px;
             border-top-left-radius: 30px;
             border-bottom-left-radius: 30px;
@@ -227,7 +227,7 @@
             border-bottom-right-radius: 0;
             font-size: 0.88rem;
             font-weight: 500;
-            line-height: 1.2;
+            line-height: 1;
             transition: color 0.25s ease, transform 0.2s ease, background-color 0.2s ease;
             background: transparent !important;
             text-decoration: none;
@@ -245,7 +245,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-top: 1px;
+            margin-top: 2px;
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease;
         }
 
@@ -817,6 +817,70 @@
             outline: none;
         }
 
+        /* ===== Global Modern Pagination Buttons ===== */
+        .pagination {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            justify-content: flex-end !important;
+            gap: 6px !important;
+            margin: 0 !important;
+            list-style: none !important;
+            padding: 0 !important;
+        }
+        .pagination .page-item {
+            margin: 0 !important;
+        }
+        .pagination .page-item .page-link {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            padding: 6px 12px !important;
+            font-size: 0.85rem !important;
+            font-weight: 500 !important;
+            font-family: 'Poppins', sans-serif !important;
+            color: #334155 !important;
+            background-color: #FFFFFF !important;
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 10px !important;
+            text-decoration: none !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            cursor: pointer !important;
+        }
+        .pagination .page-item .page-link:hover:not(.active) {
+            background-color: #F8FAFC !important;
+            color: #1E3A8A !important;
+            border-color: #CBD5E1 !important;
+            transform: translateY(-1px) !important;
+        }
+        .pagination .page-item.active .page-link {
+            background: linear-gradient(135deg, #16233F 0%, #1E3A8A 100%) !important;
+            color: #FFFFFF !important;
+            border-color: #16233F !important;
+            font-weight: 600 !important;
+            box-shadow: 0 4px 12px rgba(22, 35, 63, 0.2) !important;
+        }
+        .pagination .page-item.disabled .page-link {
+            color: #94A3B8 !important;
+            background-color: #F8FAFC !important;
+            border-color: #E2E8F0 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6 !important;
+            box-shadow: none !important;
+        }
+        /* Defeat any SVG arrows blowing up to screen width */
+        .pagination svg,
+        nav[role="navigation"] svg {
+            width: 16px !important;
+            height: 16px !important;
+            max-width: 16px !important;
+            max-height: 16px !important;
+            display: inline-block !important;
+        }
+
         /* Mobile Adjustments */
         .sidebar-toggle-btn {
             display: none;
@@ -852,16 +916,49 @@
                 display: block;
             }
             .topbar {
-                padding: 16px 20px;
+                padding: 14px 16px;
+            }
+            .topbar-title {
+                font-size: 1.15rem !important;
+                max-width: 240px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .content-area {
-                padding: 16px 20px 32px 20px;
+                padding: 16px 14px 32px 14px;
+            }
+            .table-responsive {
+                -webkit-overflow-scrolling: touch;
+                border-radius: 14px;
             }
         }
 
         @media (max-width: 575.98px) {
-            .topbar-user-text { display: none; }
-            .topbar-pill-badge { display: none; }
+            .topbar {
+                padding: 12px 14px !important;
+            }
+            .topbar-title {
+                font-size: 1.05rem !important;
+                max-width: 180px;
+            }
+            .topbar-subtitle {
+                display: none !important;
+            }
+            .topbar-user-text { display: none !important; }
+            .topbar-pill-badge { display: none !important; }
+            .topbar-user-btn {
+                padding: 4px 6px !important;
+            }
+            .pagination {
+                justify-content: center !important;
+            }
+            .pagination .page-item .page-link {
+                min-width: 32px !important;
+                height: 32px !important;
+                padding: 4px 8px !important;
+                font-size: 0.78rem !important;
+            }
         }
     </style>
 
@@ -1197,6 +1294,18 @@
 
         toggleBtn?.addEventListener('click', toggleSidebar);
         backdrop?.addEventListener('click', toggleSidebar);
+
+        // Auto close sidebar on mobile when nav link is clicked
+        if (sidebar) {
+            sidebar.querySelectorAll('.nav-link').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth < 992) {
+                        sidebar.classList.remove('show');
+                        backdrop?.classList.remove('show');
+                    }
+                });
+            });
+        }
 
         // Auto-hide global toast notifications after 5.5 seconds
         document.addEventListener('DOMContentLoaded', function() {

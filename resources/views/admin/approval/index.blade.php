@@ -104,15 +104,15 @@
                 <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
                     <thead style="background-color: #F8FAFC;">
                         <tr>
-                            <th class="py-3 px-4 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Tanggal & Waktu</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Teller</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Kas Awal (Modal)</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Kas Sistem</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Kas Fisik di Laci</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Selisih (Fisik - Sistem)</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em;">Catatan Rekonsiliasi</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold text-center" style="font-size: 0.74rem; letter-spacing: 0.05em;">Status</th>
-                            <th class="py-3 px-4 text-secondary text-uppercase fw-semibold text-center" style="font-size: 0.74rem; letter-spacing: 0.05em; min-width: 210px;">Aksi</th>
+                            <th class="py-3 px-4 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 130px;">Tanggal & Waktu</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 150px;">Teller</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 120px;">Kas Awal (Modal)</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 120px;">Kas Sistem</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 160px;">Kas Fisik di Laci</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 140px;">Selisih (Fisik - Sistem)</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.74rem; letter-spacing: 0.05em; min-width: 300px; width: 380px;">Catatan Rekonsiliasi</th>
+                            <th class="py-3 text-secondary text-uppercase fw-semibold text-center" style="font-size: 0.74rem; letter-spacing: 0.05em; white-space: nowrap; min-width: 140px;">Status</th>
+                            <th class="py-3 px-4 text-secondary text-uppercase fw-semibold text-center" style="font-size: 0.74rem; letter-spacing: 0.05em; min-width: 200px; white-space: nowrap;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -126,7 +126,7 @@
                             @endphp
                             <tr style="border-bottom: 1px solid #F1F5F9;">
                                 {{-- Tanggal & Waktu --}}
-                                <td class="px-4 py-3">
+                                <td class="px-4 py-3" style="white-space: nowrap;">
                                     <div class="fw-semibold text-dark">
                                         {{ \Carbon\Carbon::parse($report->report_date ?? $report->created_at)->timezone('Asia/Jakarta')->translatedFormat('d M Y') }}
                                     </div>
@@ -136,7 +136,7 @@
                                 </td>
 
                                 {{-- Nama Teller --}}
-                                <td class="py-3">
+                                <td class="py-3" style="white-space: nowrap;">
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="d-flex align-items-center justify-content-center rounded-circle fw-bold shadow-sm" 
                                              style="width: 34px; height: 34px; background: #EFF6FF; color: #1E3A8A; border: 1px solid #DBEAFE; font-size: 0.82rem;">
@@ -150,7 +150,7 @@
                                 </td>
 
                                 {{-- Kas Awal (Modal) - PENGGABUNGAN FITUR SHIFT LACI KASIR --}}
-                                <td class="py-3">
+                                <td class="py-3" style="white-space: nowrap;">
                                     <div class="fw-semibold text-secondary">
                                         Rp {{ number_format($report->opening_balance ?? 0, 0, ',', '.') }}
                                     </div>
@@ -158,7 +158,7 @@
                                 </td>
 
                                 {{-- Kas Sistem --}}
-                                <td class="py-3">
+                                <td class="py-3" style="white-space: nowrap;">
                                     <div class="fw-semibold text-dark">
                                         Rp {{ number_format($report->closing_balance_system ?? 0, 0, ',', '.') }}
                                     </div>
@@ -171,7 +171,7 @@
                                 </td>
 
                                 {{-- Kas Fisik di Laci --}}
-                                <td class="py-3">
+                                <td class="py-3" style="white-space: nowrap;">
                                     @if($isAutoReport)
                                         <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill fw-semibold">
                                             <i class="bi bi-robot me-1"></i>(Kosong - Input Otomatis)
@@ -186,7 +186,7 @@
                                 </td>
 
                                 {{-- Selisih Kas --}}
-                                <td class="py-3">
+                                <td class="py-3" style="white-space: nowrap;">
                                     @if($isAutoReport)
                                         <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill fw-semibold">
                                             <i class="bi bi-dash-circle me-1"></i>Menunggu Fisik
@@ -207,12 +207,14 @@
                                 </td>
 
                                 {{-- Catatan Rekonsiliasi --}}
-                                <td class="py-3" style="max-width: 180px;">
-                                    <span class="text-muted small text-break">{{ $report->notes ?: '-' }}</span>
+                                <td class="py-3" style="min-width: 300px; max-width: 420px;">
+                                    <div class="text-secondary small" style="line-height: 1.5; word-wrap: break-word; white-space: normal;">
+                                        {{ $report->notes ?: '-' }}
+                                    </div>
                                 </td>
 
                                 {{-- Status --}}
-                                <td class="py-3 text-center">
+                                <td class="py-3 text-center" style="white-space: nowrap;">
                                     @if($report->status === 'approved')
                                         <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-semibold">
                                             <i class="bi bi-check2-all me-1"></i>Disetujui (Vault)
@@ -239,7 +241,7 @@
                                 </td>
 
                                 {{-- Aksi --}}
-                                <td class="px-4 py-3 text-center">
+                                <td class="px-4 py-3 text-center" style="white-space: nowrap; min-width: 200px;">
                                     <div class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
                                         @if($report->status === 'pending')
                                             {{-- Tombol Setujui (Pindah ke Brankas) --}}

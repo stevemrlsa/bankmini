@@ -95,7 +95,7 @@
 
         @if($transactions->hasPages())
             <div class="p-3 bg-white border-top">
-                {{ $transactions->links() }}
+                {{ $transactions->links('pagination::bootstrap-5') }}
             </div>
         @endif
     </div>

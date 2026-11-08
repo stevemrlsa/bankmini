@@ -148,7 +148,7 @@
         @if(method_exists($transactions, 'hasPages') && $transactions->hasPages())
             <div class="d-flex justify-content-between align-items-center pt-3 mt-3 border-top small text-muted flex-wrap gap-2">
                 <span>Menampilkan {{ $transactions->firstItem() }}–{{ $transactions->lastItem() }} dari {{ $transactions->total() }} transaksi</span>
-                <div>{{ $transactions->links() }}</div>
+                <div>{{ $transactions->links('pagination::bootstrap-5') }}</div>
             </div>
         @endif
     </div>

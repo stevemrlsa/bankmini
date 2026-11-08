@@ -266,28 +266,6 @@
                             </tr>
                         @endforelse
                     </tbody>
-                    @if($journals->count() > 0)
-                        <tfoot style="background-color: #F8FAFC; border-top: 2px solid #CBD5E1;">
-                            <tr class="fw-bold text-dark">
-                                <td colspan="5" class="py-3 px-4 text-end text-uppercase" style="font-size: 0.78rem;">
-                                    Total Saldo Neraca (Debet vs Kredit):
-                                </td>
-                                <td class="py-3 text-end fs-6 text-primary">
-                                    Rp {{ number_format($totalDebit, 0, ',', '.') }}
-                                </td>
-                                <td class="py-3 text-end fs-6 text-success">
-                                    Rp {{ number_format($totalCredit, 0, ',', '.') }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    @if($isBalanced)
-                                        <span class="badge bg-success text-white rounded-pill px-2 py-1"><i class="bi bi-check-lg"></i> Balance</span>
-                                    @else
-                                        <span class="badge bg-danger text-white rounded-pill px-2 py-1"><i class="bi bi-x-lg"></i> Selisih</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        </tfoot>
-                    @endif
                 </table>
             </div>
         </div>

@@ -341,10 +341,7 @@ class TellerActivationController extends Controller
                             'status'          => 'active',
                             'updated_at'      => now(),
                         ];
-                        // Jangan pernah menimpa user_id yang sudah ada untuk menghindari Integrity constraint violation 1062
-                        if (empty($existingMemberRecord->user_id) && !DB::table('members')->where('user_id', $user->id)->exists()) {
-                            $updateData['user_id'] = $user->id;
-                        }
+                        // Update data profil anggota tanpa mengubah user_id primary key agar tidak terjadi SQLSTATE 1062
                         DB::table('members')->where('student_id', $studentId)->update($updateData);
                     } else {
                         $targetUserId = $user->id;
