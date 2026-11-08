@@ -954,7 +954,7 @@
                 <div class="focus-field-group">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="focus-field-label mb-0" for="withdrawal_amount">Jumlah Penarikan (Rp)</label>
-                        <small class="text-muted" style="font-size: 0.74rem;">Min. Rp 1.000</small>
+                        <small class="text-muted" style="font-size: 0.74rem;">Min. Rp 1.000 · Maks. Rp 500.000</small>
                     </div>
                     <div class="focus-field-wrap">
                         <span class="prefix-currency">Rp</span>
@@ -965,6 +965,7 @@
                             class="focus-field-input"
                             placeholder="0"
                             min="1000"
+                            max="500000"
                             step="500"
                             required
                         >
@@ -977,6 +978,7 @@
                         <button type="button" class="nominal-chip" onclick="setWithdrawalAmount(50000)">50.000</button>
                         <button type="button" class="nominal-chip" onclick="setWithdrawalAmount(100000)">100.000</button>
                         <button type="button" class="nominal-chip" onclick="setWithdrawalAmount(200000)">200.000</button>
+                        <button type="button" class="nominal-chip" onclick="setWithdrawalAmount(500000)">500.000</button>
                     </div>
                 </div>
 
@@ -1457,6 +1459,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const amountVal = parseInt(withdrawalAmount.value);
         if (!amountVal || amountVal < 1000) {
             withdrawalErrorAlert.textContent = 'Nominal penarikan minimal adalah Rp 1.000.';
+            withdrawalErrorAlert.classList.remove('d-none');
+            withdrawalAmount.focus();
+            return;
+        }
+
+        if (amountVal > 500000) {
+            withdrawalErrorAlert.textContent = 'Batas maksimal penarikan tunai per transaksi adalah Rp 500.000. (Setoran tunai tanpa batas).';
             withdrawalErrorAlert.classList.remove('d-none');
             withdrawalAmount.focus();
             return;

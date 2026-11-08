@@ -219,7 +219,7 @@
             gap: 12px;
             color: rgba(255, 255, 255, 0.80);
             height: 46px;
-            padding: 0 18px;
+            padding: 3px 18px 0 18px;
             margin-right: -6px;
             border-top-left-radius: 30px;
             border-bottom-left-radius: 30px;
@@ -227,6 +227,7 @@
             border-bottom-right-radius: 0;
             font-size: 0.88rem;
             font-weight: 500;
+            line-height: 1.2;
             transition: color 0.25s ease, transform 0.2s ease, background-color 0.2s ease;
             background: transparent !important;
             text-decoration: none;
@@ -241,6 +242,10 @@
             text-align: center;
             flex-shrink: 0;
             opacity: 0.85;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease;
         }
 

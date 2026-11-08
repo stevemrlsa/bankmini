@@ -474,6 +474,7 @@
                             id="amount"
                             name="amount"
                             min="1000"
+                            max="500000"
                             step="500"
                             class="field-input with-prefix @error('amount') is-invalid @enderror"
                             placeholder="0"
@@ -484,7 +485,7 @@
                     @error('amount')
                         <div style="color: #dc2626; font-size: 0.75rem; margin-top: 4px;">{{ $message }}</div>
                     @enderror
-                    <p class="field-helper">Sisa saldo setelah penarikan minimal Rp 10.000 (saldo mengendap).</p>
+                    <p class="field-helper">Maksimal penarikan tunai Rp 500.000 per transaksi (Setoran tunai tanpa batas). Sisa saldo mengendap minimal Rp 10.000.</p>
                 </div>
 
                 <!-- Hidden PIN Field in Form, populated from PIN modal -->
@@ -992,6 +993,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (!amountInput.value || parseInt(amountInput.value) < 1000) {
             alert('Silakan isi nominal penarikan minimal Rp 1.000.');
+            amountInput.focus();
+            return;
+        }
+        if (parseInt(amountInput.value) > 500000) {
+            alert('Batas maksimal penarikan tunai adalah Rp 500.000 per transaksi. Setoran tunai tidak memiliki batasan.');
             amountInput.focus();
             return;
         }

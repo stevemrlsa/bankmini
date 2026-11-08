@@ -298,8 +298,14 @@ class TransactionController extends Controller
     {
         $request->validate([
             'account_number' => 'required|string|exists:savers,account_number',
-            'amount'         => 'required|integer|min:1000',
+            'amount'         => 'required|numeric|min:1000|max:500000',
             'security_pin'   => 'required|digits:6', 
+        ], [
+            'amount.max'            => 'Batas maksimal penarikan tunai adalah Rp 500.000 per transaksi.',
+            'amount.min'            => 'Nominal penarikan tunai minimal Rp 1.000.',
+            'amount.numeric'        => 'Nominal penarikan harus berupa angka.',
+            'security_pin.required' => 'PIN keamanan nasabah wajib dimasukkan.',
+            'security_pin.digits'   => 'PIN keamanan harus terdiri dari 6 digit angka.',
         ]);
 
         // 1. Get the Teller's active shift

@@ -107,9 +107,12 @@
                         <span class="input-group-text bg-white border-end-0" style="border-radius: 12px 0 0 12px;">
                             <i class="bi bi-building text-primary"></i>
                         </span>
-                        <select name="class" class="form-select border-start-0 fw-semibold" style="border-radius: 0 12px 12px 0;" onchange="this.form.submit()">
+                        <select name="class" class="form-select border-start-0 fw-semibold" style="border-radius: 0 12px 12px 0;" onchange="const s = this.form.querySelector('input[name=search]'); if(s) s.value=''; this.form.submit()">
+                            @if(request('search'))
+                                <option value="" selected>-- Semua Kelas (Pencarian Aktif) --</option>
+                            @endif
                             @foreach($classes as $c)
-                                <option value="{{ $c }}" {{ ($currentClass ?? request('class')) == $c ? 'selected' : '' }}>
+                                <option value="{{ $c }}" {{ (!request('search') && ($currentClass ?? request('class')) == $c) ? 'selected' : '' }}>
                                     Kelas: {{ $c }}
                                 </option>
                             @endforeach
@@ -117,13 +120,13 @@
                     </div>
                 </div>
 
-                {{-- Search Bar --}}
+                {{-- Search Bar (Cari nama / NIS di seluruh kelas, mengabaikan opsi kelas) --}}
                 <div class="col-md-5 col-sm-6">
                     <div class="input-group">
                         <input type="text" 
                                name="search" 
                                class="form-control" 
-                               placeholder="Cari nama atau NIS di semua kelas..." 
+                               placeholder="Cari nama atau NIS siswa di semua kelas..." 
                                value="{{ request('search') }}"
                                style="border-radius: 12px 0 0 12px;">
                         <button type="submit" class="btn btn-primary px-3" style="background: linear-gradient(135deg, #0F766E, #14B8A6); border: none; border-radius: 0 12px 12px 0;" title="Cari Data">
@@ -142,6 +145,22 @@
                 @endif
             </form>
         </div>
+
+        {{-- Search Result Info Banner --}}
+        @if(request('search'))
+            <div class="alert alert-light border d-flex justify-content-between align-items-center mb-3 py-2 px-3 rounded-3 flex-wrap gap-2" style="background: #F0FDFA; border-color: #99F6E4 !important; color: #0F766E;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-search fs-5" style="color: #0F766E;"></i>
+                    <div>
+                        Menampilkan hasil pencarian untuk: <strong>"{{ request('search') }}"</strong> di <strong>seluruh kelas</strong> 
+                        <span class="badge text-white ms-1" style="background: #0F766E;">{{ $members->count() }} siswa ditemukan</span>
+                    </div>
+                </div>
+                <a href="{{ route('teller.activations.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Kembali ke Mode Per-Kelas
+                </a>
+            </div>
+        @endif
 
         {{-- Per-Class Navigation Header Bar --}}
         @if(!request('search') && ($totalClasses ?? 0) > 0)

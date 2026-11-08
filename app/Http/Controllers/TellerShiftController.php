@@ -31,12 +31,16 @@ class TellerShiftController extends Controller
      */
     public function store(Request $request)
     {
+        // Bersihkan tanda titik pemisah ribuan rupiah jika diinput berformat rupiah
+        $rawOpening = str_replace('.', '', (string) $request->input('opening_balance', ''));
+        $request->merge(['opening_balance' => $rawOpening]);
+
         $request->validate([
-            'opening_balance' => 'required|numeric|min:0',
+            'opening_balance' => 'required|numeric|min:1000',
         ], [
-            'opening_balance.required' => 'Nominal modal awal (buka laci) wajib diisi.',
-            'opening_balance.numeric'  => 'Nominal modal awal harus berupa angka.',
-            'opening_balance.min'      => 'Nominal modal awal tidak boleh bernilai negatif.',
+            'opening_balance.required' => 'Nominal kas fisik awal laci wajib diisi dan tidak boleh kosong.',
+            'opening_balance.numeric'  => 'Nominal kas fisik awal harus berupa angka.',
+            'opening_balance.min'      => 'Kas awal laci fisik wajib diisi minimal Rp 1.000 dan tidak boleh Rp 0. Masukkan uang fisik riil yang ada di laci Anda saat memulai shift.',
         ]);
 
         $activeShift = TellerShift::where('user_id', auth()->id())
@@ -50,13 +54,13 @@ class TellerShiftController extends Controller
 
         TellerShift::create([
             'user_id'         => auth()->id(),
-            'opening_balance' => $request->opening_balance,
+            'opening_balance' => (float) $rawOpening,
             'status'          => 'Open',
             'opened_at'       => now(),
         ]);
 
         return redirect()->route('teller.dashboard')
-            ->with('success', 'Laci kas berhasil dibuka. Selamat bertugas!');
+            ->with('success', 'Laci kas berhasil dibuka dengan modal awal Rp ' . number_format((float) $rawOpening, 0, ',', '.') . '. Selamat bertugas!');
     }
 
     /**

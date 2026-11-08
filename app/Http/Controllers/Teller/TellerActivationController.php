@@ -68,17 +68,17 @@ class TellerActivationController extends Controller
         $currentClassIndex = 0;
         $totalClasses = $classes->count();
 
-        // Jika sedang mencari nama/NIS, tampilkan hasil pencarian lintas kelas (atau sesuai filter kelas)
+        // Jika sedang mencari nama/NIS, cari di SELURUH kelas (mengabaikan opsi kelas di sebelah kirinya)
         if ($request->filled('search')) {
             $searchTerm = trim($request->search);
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('student_name', 'like', '%' . $searchTerm . '%')
                   ->orWhere('student_id', 'like', '%' . $searchTerm . '%');
             });
-            if ($request->filled('class')) {
-                $currentClass = trim($request->class);
-                $query->where('grade_class', $currentClass);
-            }
+            // Opsi pencarian mengabaikan pilihan kelas
+            $currentClass = null;
+            $prevClass = null;
+            $nextClass = null;
         } else {
             // Mode Tampilan Per Kelas (1 tabel = 1 kelas dengan tombol Kelas Sebelumnya & Selanjutnya)
             if ($classes->isNotEmpty()) {
@@ -258,15 +258,19 @@ class TellerActivationController extends Controller
                         'status'          => 'Aktif',
                     ]);
                 } else {
-                    $user = User::create([
-                        'username'        => $validated['username'],
-                        'email'           => $validated['email'],
-                        'whatsapp_number' => $validated['whatsapp_number'],
-                        'password'        => Hash::make('123456'),
-                        'officer_name'    => $studentName,
-                        'role'            => 'Saver',
-                        'status'          => 'Aktif',
-                    ]);
+                    $user = new User();
+                    // Jika data member sudah punya user_id dan belum ada di tabel users, gunakan user_id tersebut
+                    if ($member && !empty($member->user_id) && !User::where('id', $member->user_id)->exists()) {
+                        $user->id = $member->user_id;
+                    }
+                    $user->username        = $validated['username'];
+                    $user->email           = $validated['email'];
+                    $user->whatsapp_number = $validated['whatsapp_number'];
+                    $user->password        = Hash::make('123456');
+                    $user->officer_name    = $studentName;
+                    $user->role            = 'Saver';
+                    $user->status          = 'Aktif';
+                    $user->save();
                 }
 
                 // b. Generate unique Account Number if not already assigned
@@ -325,18 +329,42 @@ class TellerActivationController extends Controller
                     $saver = Saver::create($saverData);
                 }
 
-                // Also synchronize Member record
-                Member::updateOrCreate(
-                    ['student_id' => $studentId],
-                    [
-                        'user_id'         => $user->id,
-                        'name'            => $studentName,
-                        'grade_class'     => $gradeClass,
-                        'graduation_year' => date('Y'),
-                        'account_number'  => $accountNumber,
-                        'status'          => 'active',
-                    ]
-                );
+                // Also synchronize Member record safely without PRIMARY KEY collision
+                if (Schema::hasTable('members')) {
+                    $existingMemberRecord = DB::table('members')->where('student_id', $studentId)->first();
+                    if ($existingMemberRecord) {
+                        $updateData = [
+                            'name'            => $studentName,
+                            'grade_class'     => $gradeClass,
+                            'graduation_year' => $existingMemberRecord->graduation_year ?: date('Y'),
+                            'account_number'  => $accountNumber,
+                            'status'          => 'active',
+                            'updated_at'      => now(),
+                        ];
+                        // Jangan pernah menimpa user_id yang sudah ada untuk menghindari Integrity constraint violation 1062
+                        if (empty($existingMemberRecord->user_id) && !DB::table('members')->where('user_id', $user->id)->exists()) {
+                            $updateData['user_id'] = $user->id;
+                        }
+                        DB::table('members')->where('student_id', $studentId)->update($updateData);
+                    } else {
+                        $targetUserId = $user->id;
+                        if (DB::table('members')->where('user_id', $targetUserId)->exists()) {
+                            $maxUserId = (int) DB::table('members')->max('user_id');
+                            $targetUserId = max($maxUserId + 1, $user->id + 1);
+                        }
+                        DB::table('members')->insert([
+                            'user_id'         => $targetUserId,
+                            'student_id'      => $studentId,
+                            'name'            => $studentName,
+                            'grade_class'     => $gradeClass,
+                            'graduation_year' => date('Y'),
+                            'account_number'  => $accountNumber,
+                            'status'          => 'active',
+                            'created_at'      => now(),
+                            'updated_at'      => now(),
+                        ]);
+                    }
+                }
 
                 // d. Create new Transaction (Setoran Awal / Deposit)
                 $transactionData = [
