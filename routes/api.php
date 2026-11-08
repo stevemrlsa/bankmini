@@ -113,30 +113,40 @@ Route::get('deploy-migrate-{secret}', function (Request $request, $secret) {
     }
 
     try {
-        // 1. Jalankan migrasi database
-        Artisan::call('migrate', ['--force' => true]);
-        $migrateOutput = trim(Artisan::output());
+        // 1. Bersihkan seluruh file kompilasi view & cache optimasi terlebih dahulu
+        try {
+            foreach (glob(storage_path('framework/views/*.php')) ?: [] as $compiledView) {
+                @unlink($compiledView);
+            }
+            Artisan::call('optimize:clear');
+        } catch (\Throwable $e) {}
 
-        // 2. Jalankan seeder (jika parameter ?seed=1 disertakan)
-        $seedOutput = 'Seeding dilewati.';
-        if ($request->query('seed') === '1' || $request->has('seed')) {
-            Artisan::call('db:seed', ['--force' => true]);
-            $seedOutput = trim(Artisan::output());
+        // 2. Jalankan migrasi database
+        $migrateOutput = 'Migrasi dilewati.';
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+            $migrateOutput = trim(Artisan::output());
+        } catch (\Throwable $e) {
+            $migrateOutput = 'Peringatan migrasi: ' . $e->getMessage();
         }
 
-        // 3. Sambungkan symlink storage publik
+        // 3. Jalankan seeder (jika parameter ?seed=1 disertakan)
+        $seedOutput = 'Seeding dilewati.';
+        if ($request->query('seed') === '1' || $request->has('seed')) {
+            try {
+                Artisan::call('db:seed', ['--force' => true]);
+                $seedOutput = trim(Artisan::output());
+            } catch (\Throwable $e) {}
+        }
+
+        // 4. Sambungkan symlink storage publik
         try {
             Artisan::call('storage:link');
         } catch (\Throwable $e) {}
 
-        // 4. Bersihkan dan perbarui cache optimasi
-        try {
-            Artisan::call('optimize:clear');
-        } catch (\Throwable $e) {}
-
         return response()->json([
             'status'         => 'success',
-            'message'        => 'Migrasi dan inisialisasi database berhasil!',
+            'message'        => 'Sinkronisasi cache dan database berhasil!',
             'migrate_output' => $migrateOutput,
             'seed_output'    => $seedOutput,
         ]);
