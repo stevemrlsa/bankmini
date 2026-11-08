@@ -501,6 +501,7 @@
     .corner-br { bottom: 24px; right: 24px; border-width: 0 3px 3px 0; border-bottom-right-radius: 6px; }
 </style>
 @endpush
+<!-- Synchronized: Bank Mini Teller Dashboard Complete View -->
 
 @section('content')
 
@@ -1581,3 +1582,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
+<!-- Synchronized: Bank Mini Teller Dashboard Complete View -->
