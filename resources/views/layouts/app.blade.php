@@ -82,7 +82,7 @@
             height: 100dvh;
             display: flex;
             flex-direction: column;
-            padding: 26px 0 20px 18px;
+            padding: 20px 0 16px 18px;
             z-index: 1030;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             box-shadow: none;
@@ -93,12 +93,12 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 0 18px 20px 6px;
+            padding: 0 18px 16px 6px;
             text-decoration: none;
             flex-shrink: 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             margin-right: 18px;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .sidebar-brand .brand-icon {
@@ -142,12 +142,13 @@
         .sidebar-section-label {
             font-size: 0.68rem;
             color: rgba(255, 255, 255, 0.48);
-            padding: 12px 14px 4px;
+            padding: 10px 14px 4px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             position: relative;
             z-index: 2;
+            flex-shrink: 0;
         }
 
         .sidebar-nav {
@@ -174,6 +175,8 @@
             left: 0;
             right: -6px;
             height: 46px;
+            min-height: 46px;
+            flex-shrink: 0;
             background: var(--bg-main);
             border-top-left-radius: 30px;
             border-bottom-left-radius: 30px;
@@ -219,6 +222,8 @@
             gap: 12px;
             color: rgba(255, 255, 255, 0.80);
             height: 46px;
+            min-height: 46px;
+            flex-shrink: 0;
             padding: 4px 18px 0 18px;
             margin-right: -6px;
             border-top-left-radius: 30px;
@@ -1377,7 +1382,7 @@
             }
 
             const topPos = targetLink.offsetTop;
-            const itemHeight = targetLink.offsetHeight;
+            const itemHeight = Math.max(46, targetLink.offsetHeight);
 
             sidebarGlider.style.height = itemHeight + 'px';
             sidebarGlider.style.transform = `translateY(${topPos}px)`;
@@ -1399,6 +1404,11 @@
             const activeLink = sidebarNav.querySelector('.nav-link.active');
             if (activeLink) {
                 moveSidebarGlider(activeLink, false);
+                const navRect = sidebarNav.getBoundingClientRect();
+                const linkRect = activeLink.getBoundingClientRect();
+                if (linkRect.bottom > navRect.bottom || linkRect.top < navRect.top) {
+                    activeLink.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                }
             }
 
             // Saat klik item di sidebar, luncurkan putih glider secara mulus ke opsi yang diklik
