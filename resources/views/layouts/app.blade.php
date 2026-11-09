@@ -174,8 +174,8 @@
             position: absolute;
             left: 0;
             right: -6px;
-            height: 46px;
-            min-height: 46px;
+            height: 48px;
+            min-height: 48px;
             flex-shrink: 0;
             background: var(--bg-main);
             border-top-left-radius: 30px;
@@ -186,19 +186,20 @@
             pointer-events: none;
             opacity: 1;
             box-shadow: 6px 0 0 0 var(--bg-main);
-            transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1),
-                        height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+            transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        height 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
             will-change: transform;
+            contain: layout paint;
         }
 
         .sidebar-glider::before {
             content: '';
             position: absolute;
             right: 0;
-            top: -22px;
-            width: 22px;
-            height: 22px;
-            background: radial-gradient(circle at 0 0, transparent 21.5px, var(--bg-main) 22px);
+            top: -20px;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle at 0 0, transparent 19.5px, var(--bg-main) 20px);
             pointer-events: none;
         }
 
@@ -206,10 +207,10 @@
             content: '';
             position: absolute;
             right: 0;
-            bottom: -22px;
-            width: 22px;
-            height: 22px;
-            background: radial-gradient(circle at 0 100%, transparent 21.5px, var(--bg-main) 22px);
+            bottom: -20px;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle at 0 100%, transparent 19.5px, var(--bg-main) 20px);
             pointer-events: none;
         }
 
@@ -220,10 +221,10 @@
             align-items: center;
             gap: 12px;
             color: rgba(255, 255, 255, 0.80);
-            height: 46px;
-            min-height: 46px;
+            height: 48px;
+            min-height: 48px;
             flex-shrink: 0;
-            padding: 4px 18px 0 18px;
+            padding: 0 18px 0 18px;
             margin-right: -6px;
             border-top-left-radius: 30px;
             border-bottom-left-radius: 30px;
@@ -232,7 +233,7 @@
             font-size: 0.88rem;
             font-weight: 500;
             line-height: 1;
-            transition: color 0.25s ease, transform 0.2s ease, background-color 0.2s ease;
+            transition: color 0.22s ease, transform 0.18s ease, background-color 0.18s ease;
             background: transparent !important;
             text-decoration: none;
             white-space: nowrap;
@@ -967,18 +968,32 @@
 
         /* ===== Receipt Print Mode (Hanya cetak struk tanpa tumpuk background) ===== */
         @media print {
+            /* Sembunyikan semua elemen di body */
+            body * {
+                visibility: hidden !important;
+            }
+
+            /* Khusus area struk & seluruh elemen di dalamnya dibuat visible */
+            #printableReceipt,
+            #printableReceipt *:not(.no-print):not(.no-print *),
+            #printableFocusReceipt,
+            #printableFocusReceipt *:not(.no-print):not(.no-print *) {
+                visibility: visible !important;
+            }
+
+            /* Pastikan tombol aksi cetak / tutup di dalam struk benar-benar hilang */
             .no-print,
             .no-print *,
-            .sidebar,
-            .sidebar-backdrop,
-            .topbar,
-            #topProgressBar,
-            .toast,
-            .alert,
-            header,
-            aside,
-            footer {
+            #printableReceipt .no-print,
+            #printableReceipt .no-print *,
+            #printableFocusReceipt .no-print,
+            #printableFocusReceipt .no-print * {
                 display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
             }
 
             html, body {
@@ -994,62 +1009,33 @@
                 print-color-adjust: exact !important;
             }
 
-            .app-shell, .main-wrapper, .content-area {
-                margin: 0 !important;
-                padding: 0 !important;
-                background: transparent !important;
-                display: block !important;
-                width: 100% !important;
-                min-height: 0 !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-
-            /* Un-modalize the receipt modal so it prints cleanly as a centered slip */
             .modal,
+            .modal-backdrop,
             #modalReceipt,
             #modalFocusReceipt {
-                position: static !important;
-                display: block !important;
                 background: transparent !important;
                 background-color: transparent !important;
                 box-shadow: none !important;
-                padding: 0 !important;
-                margin: 0 auto !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-                z-index: 1 !important;
-            }
-
-            .modal-dialog {
-                position: static !important;
-                transform: none !important;
-                margin: 0 auto !important;
-                padding: 0 !important;
-                max-width: 360px !important;
-                width: 100% !important;
-                box-shadow: none !important;
-            }
-
-            .modal-content {
-                border: 1px dashed #94A3B8 !important;
-                box-shadow: none !important;
-                border-radius: 12px !important;
-                background: #FFFFFF !important;
-                padding: 4px !important;
-                margin: 0 auto !important;
             }
 
             #printableReceipt,
             #printableFocusReceipt {
+                position: absolute !important;
+                left: 50% !important;
+                top: 0 !important;
+                transform: translateX(-50%) !important;
                 display: block !important;
                 padding: 16px 20px !important;
                 margin: 0 auto !important;
-                width: 100% !important;
-                max-width: 360px !important;
+                width: 330px !important;
+                max-width: 95% !important;
                 color: #0F172A !important;
                 background: #FFFFFF !important;
+                border: 1px dashed #64748B !important;
+                border-radius: 12px !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
 
             #printableReceipt .bg-light,
@@ -1061,8 +1047,8 @@
             }
 
             @page {
-                margin: 8mm;
                 size: auto;
+                margin: 4mm;
             }
         }
     </style>
@@ -1170,7 +1156,7 @@
                                 if (a) {
                                     g.style.transition = 'none';
                                     g.style.transform = 'translateY(' + a.offsetTop + 'px)';
-                                    g.style.height = (a.offsetHeight || 46) + 'px';
+                                    g.style.height = '48px';
                                     g.style.opacity = '1';
                                 }
                             }
@@ -1493,17 +1479,18 @@
             if (!sidebarNav || !sidebarGlider || !targetLink) return;
 
             const topPos = targetLink.offsetTop;
-            const itemHeight = Math.max(46, targetLink.offsetHeight);
+            const itemHeight = 48; // Konsisten 48px baik Admin maupun Teller
 
             if (!animate) {
                 sidebarGlider.style.transition = 'none';
                 sidebarGlider.style.height = itemHeight + 'px';
                 sidebarGlider.style.transform = `translateY(${topPos}px)`;
                 sidebarGlider.style.opacity = '1';
-                void sidebarGlider.offsetWidth;
-                sidebarGlider.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                requestAnimationFrame(() => {
+                    sidebarGlider.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                });
             } else {
-                sidebarGlider.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                sidebarGlider.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)';
                 sidebarGlider.style.height = itemHeight + 'px';
                 sidebarGlider.style.transform = `translateY(${topPos}px)`;
                 sidebarGlider.style.opacity = '1';
@@ -1515,14 +1502,31 @@
 
             const activeLink = sidebarNav.querySelector('.nav-link.active');
             if (activeLink) {
-                moveSidebarGlider(activeLink, false);
-                sessionStorage.setItem('bankmini_active_glider_top', activeLink.offsetTop);
+                const prevTop = sessionStorage.getItem('bankmini_active_glider_top');
+                const targetTop = activeLink.offsetTop;
 
-                // Pastikan menu yang aktif di sidebar terlihat di viewport jika posisinya di bawah
+                if (prevTop !== null && Math.abs(Number(prevTop) - targetTop) > 4) {
+                    // Luncurkan dari posisi menu sebelumnya secara mulus tanpa kedip
+                    sidebarGlider.style.transition = 'none';
+                    sidebarGlider.style.height = '48px';
+                    sidebarGlider.style.transform = `translateY(${prevTop}px)`;
+                    sidebarGlider.style.opacity = '1';
+
+                    requestAnimationFrame(() => {
+                        sidebarGlider.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)';
+                        sidebarGlider.style.transform = `translateY(${targetTop}px)`;
+                    });
+                } else {
+                    moveSidebarGlider(activeLink, false);
+                }
+
+                sessionStorage.setItem('bankmini_active_glider_top', targetTop);
+
+                // Auto-scroll tanpa animasi getar/kedip jika item berada di luar viewport sidebar
                 const navRect = sidebarNav.getBoundingClientRect();
                 const linkRect = activeLink.getBoundingClientRect();
                 if (linkRect.bottom > navRect.bottom || linkRect.top < navRect.top) {
-                    activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    sidebarNav.scrollTop = Math.max(0, targetTop - 70);
                 }
             }
 
@@ -1552,17 +1556,17 @@
                     const content = document.querySelector('.content-area');
                     if (content) {
                         content.style.transition = 'opacity 0.15s ease';
-                        content.style.opacity = '0.45';
+                        content.style.opacity = '0.55';
                     }
 
-                    // Navigasi halaman tepat setelah luncuran mencapai posisi tujuan (160ms)
+                    // Navigasi halaman tepat setelah luncuran mencapai posisi tujuan (180ms)
                     setTimeout(() => {
                         window.location.href = href;
-                    }, 160);
+                    }, 180);
                 });
             });
 
-            // Re-align saat window di-resize atau di-zoom (80%, 90%, 110%, 125%)
+            // Re-align saat window di-resize atau di-zoom
             window.addEventListener('resize', () => {
                 const currentActive = sidebarNav.querySelector('.nav-link.active');
                 if (currentActive) {

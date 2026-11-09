@@ -18,34 +18,39 @@ class TransactionController extends Controller
         $tellerId = auth()->id();
         $today = now()->startOfDay();
 
-        $activeShift = TellerShift::where('user_id', $tellerId)
-            ->where('status', 'Open')
-            ->first();
+        $activeShift = TellerShift::getActiveOpenShift();
+        if ($activeShift) {
+            $activeShift->attachTeller($tellerId);
+        }
 
         $shiftStart = $activeShift ? $activeShift->opened_at : $today;
         $saldoAwal = $activeShift ? (float) $activeShift->opening_balance : 0;
 
-        // Total setoran oleh teller ini sejak shift dibuka / hari ini
+        // Total setoran & penarikan gabungan laci kas bersama sejak shift dibuka
+        $saldoKas = $activeShift ? $activeShift->calculateCurrentDrawerCash() : 0;
+        $totalSetoranBersama = $activeShift ? $activeShift->calculateTotalDeposits() : 0;
+        $totalPenarikanBersama = $activeShift ? $activeShift->calculateTotalWithdrawals() : 0;
+
+        // Kontribusi pribadi teller yang sedang login
         $totalSetoran = Transaction::where('user_id', $tellerId)
             ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
             ->where('created_at', '>=', $shiftStart)
             ->where('status', '!=', 'Failed')
             ->sum('amount');
 
-        // Total penarikan oleh teller ini sejak shift dibuka / hari ini
         $totalPenarikan = Transaction::where('user_id', $tellerId)
             ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
             ->where('created_at', '>=', $shiftStart)
             ->where('status', '!=', 'Failed')
             ->sum('amount');
 
-        // Jumlah transaksi oleh teller ini hari ini
         $jumlahTransaksi = Transaction::where('user_id', $tellerId)
             ->whereDate('created_at', '>=', $today)
             ->count();
 
-        // Saldo kas fisik di laci = Modal Kas Laci (Opening + TopUp) + Setoran - Penarikan
-        $saldoKas = $saldoAwal + $totalSetoran - $totalPenarikan;
+        // Daftar rekan teller yang bertugas dalam shift bersama ini
+        $participatingTellers = $activeShift ? $activeShift->getParticipatingTellers() : collect([auth()->user()]);
+        $isSharedShift = $participatingTellers->count() > 1;
 
         // Transaksi terbaru oleh teller ini
         $latestTransactions = Transaction::with('saver')
@@ -59,15 +64,25 @@ class TransactionController extends Controller
             'saldoAwal',
             'totalSetoran',
             'totalPenarikan',
+            'totalSetoranBersama',
+            'totalPenarikanBersama',
             'jumlahTransaksi',
             'saldoKas',
-            'latestTransactions'
+            'latestTransactions',
+            'participatingTellers',
+            'isSharedShift'
         ));
     }
 
     public function createSetoran()
     {
-        return view('teller.setoran');
+        $activeShift = TellerShift::getActiveOpenShift();
+        if ($activeShift) {
+            $activeShift->attachTeller(auth()->id());
+        }
+        $uangFisikDiLaci = $activeShift ? $activeShift->calculateCurrentDrawerCash() : 0;
+
+        return view('teller.setoran', compact('activeShift', 'uangFisikDiLaci'));
     }
 
     public function store(Request $request)
@@ -320,26 +335,12 @@ class TransactionController extends Controller
 
     public function createPenarikan()
     {
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
-
-        $uangFisikDiLaci = 0;
+        $activeShift = TellerShift::getActiveOpenShift();
         if ($activeShift) {
-            $totalSetoran = Transaction::where('user_id', auth()->id())
-                ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-                ->where('created_at', '>=', $activeShift->opened_at)
-                ->where('status', '!=', 'Failed')
-                ->sum('amount');
-
-            $totalPenarikan = Transaction::where('user_id', auth()->id())
-                ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-                ->where('created_at', '>=', $activeShift->opened_at)
-                ->where('status', '!=', 'Failed')
-                ->sum('amount');
-
-            $uangFisikDiLaci = max(0, (float) $activeShift->opening_balance + (float) $totalSetoran - (float) $totalPenarikan);
+            $activeShift->attachTeller(auth()->id());
         }
+
+        $uangFisikDiLaci = $activeShift ? $activeShift->calculateCurrentDrawerCash() : 0;
 
         $prefilledRequest = null;
         if (request()->filled('request_id')) {
@@ -371,10 +372,8 @@ class TransactionController extends Controller
             'security_pin.digits'     => 'PIN keamanan harus terdiri dari 6 digit angka.',
         ]);
 
-        // 1. Get the Teller's active shift
-        $activeShift = \App\Models\TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        // 1. Get the shared active shift and attach current teller
+        $activeShift = \App\Models\TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
             $shiftError = 'Penarikan ditolak! Anda belum membuka shift / laci kasir.';
@@ -387,23 +386,12 @@ class TransactionController extends Controller
             return back()->withInput()->with('error', $shiftError);
         }
 
-        // 2. Calculate cash flow since the shift opened
-        $totalSetoran = \App\Models\Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
+        $activeShift->attachTeller(auth()->id());
 
-        $totalPenarikan = \App\Models\Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
+        // 2 & 3. Calculate actual physical cash in the shared drawer
+        $uangFisikDiLaci = $activeShift->calculateCurrentDrawerCash();
 
-        // 3. Calculate actual physical cash in drawer
-        $uangFisikDiLaci = max(0, (float) $activeShift->opening_balance + (float) $totalSetoran - (float) $totalPenarikan);
-
-        // 4. Block transaction if physical cash is insufficient
+        // 4. Block transaction if physical cash in shared drawer is insufficient
         if ($uangFisikDiLaci <= 0 || (float) $request->amount > $uangFisikDiLaci) {
             $insufficientError = 'Penarikan ditolak! Uang kas fisik di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.';
             if ($request->wantsJson() || $request->ajax()) {
@@ -419,23 +407,11 @@ class TransactionController extends Controller
             $saver = null;
             $withdrawalReq = null;
             DB::transaction(function () use ($request, $activeShift, &$saver, &$withdrawalReq) {
-                // Validasi ulang saldo kas laci di dalam transaksi
-                $setoranShift = Transaction::where('user_id', auth()->id())
-                    ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-                    ->where('created_at', '>=', $activeShift->opened_at)
-                    ->where('status', '!=', 'Failed')
-                    ->sum('amount');
-
-                $penarikanShift = Transaction::where('user_id', auth()->id())
-                    ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-                    ->where('created_at', '>=', $activeShift->opened_at)
-                    ->where('status', '!=', 'Failed')
-                    ->sum('amount');
-
-                $kasLaciTersedia = max(0, (float) $activeShift->opening_balance + (float) $setoranShift - (float) $penarikanShift);
+                // Validasi ulang saldo kas laci bersama di dalam transaksi
+                $kasLaciTersedia = $activeShift->calculateCurrentDrawerCash();
                 if ($kasLaciTersedia <= 0 || (float) $request->amount > $kasLaciTersedia) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'amount' => 'Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($kasLaciTersedia, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.'
+                        'amount' => 'Penarikan ditolak! Uang kas fisik di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($kasLaciTersedia, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.'
                     ]);
                 }
 

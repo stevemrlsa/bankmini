@@ -234,6 +234,7 @@ Route::prefix('teller')->middleware(['auth', 'role:Teller'])->group(function () 
     Route::get('/shift/create', [TellerShiftController::class, 'create'])->name('teller.shift.create');
     Route::post('/shift', [TellerShiftController::class, 'store'])->name('teller.shift.store');
     Route::post('/shift/top-up', [TellerShiftController::class, 'topUp'])->name('teller.shift.topup');
+    Route::get('/shift/live-status', [TellerShiftController::class, 'liveStatus'])->name('teller.shift.live-status');
 
     // Rute Operasional & Transaksi (Wajib memiliki Shift / Modal Awal yang Aktif)
     Route::middleware('teller.shift')->group(function () {

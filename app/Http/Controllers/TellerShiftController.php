@@ -6,21 +6,27 @@ use Illuminate\Http\Request;
 use App\Models\TellerShift;
 use App\Models\Transaction;
 use App\Models\DailyReport;
+use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 class TellerShiftController extends Controller
 {
     /**
      * Tampilkan form Buka Laci Kas / Modal Awal Shift.
+     * Jika sudah ada shift aktif yang dibuka oleh rekan teller (Shift Bersama),
+     * teller langsung dihubungkan ke shift aktif tersebut.
      */
     public function create()
     {
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if ($activeShift) {
+            $activeShift->attachTeller(auth()->id());
+            $opener = $activeShift->user;
+            $openerName = $opener ? ($opener->officer_name ?: $opener->username) : 'Teller';
+
             return redirect()->route('teller.dashboard')
-                ->with('info', 'Shift Anda sudah aktif dan laci kas telah terbuka.');
+                ->with('info', "Laci kas hari ini sudah dibuka oleh {$openerName} (Modal Awal: Rp " . number_format($activeShift->opening_balance, 0, ',', '.') . "). Anda otomatis terhubung ke Shift Bersama!");
         }
 
         return view('teller.shift.create');
@@ -43,21 +49,26 @@ class TellerShiftController extends Controller
             'opening_balance.min'      => 'Kas awal laci fisik wajib diisi minimal Rp 1.000 dan tidak boleh Rp 0. Masukkan uang fisik riil yang ada di laci Anda saat memulai shift.',
         ]);
 
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if ($activeShift) {
+            $activeShift->attachTeller(auth()->id());
             return redirect()->route('teller.dashboard')
-                ->with('warning', 'Shift kasir Anda sudah dalam status terbuka.');
+                ->with('info', 'Shift kasir sudah dalam status terbuka oleh rekan teller. Anda terhubung ke Shift Bersama.');
         }
 
-        TellerShift::create([
+        $shiftData = [
             'user_id'         => auth()->id(),
             'opening_balance' => (float) $rawOpening,
             'status'          => 'Open',
             'opened_at'       => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('teller_shifts', 'shared_user_ids')) {
+            $shiftData['shared_user_ids'] = [auth()->id()];
+        }
+
+        TellerShift::create($shiftData);
 
         \App\Models\AuditLog::record(
             'BUKA_LACI_SHIFT',
@@ -88,19 +99,20 @@ class TellerShiftController extends Controller
             'amount.min'      => 'Nominal penambahan kas minimal Rp 1.000.',
         ]);
 
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
             return redirect()->route('teller.shift.create')
                 ->with('error', 'Tidak ada shift kasir yang sedang aktif. Silakan buka laci terlebih dahulu.');
         }
 
+        $activeShift->attachTeller(auth()->id());
+
         $addedAmount = (float) $request->amount;
         $activeShift->opening_balance = (float) $activeShift->opening_balance + $addedAmount;
 
-        $noteAppend = 'Top-Up Kas Laci: +Rp ' . number_format($addedAmount, 0, ',', '.') . ' (' . now()->format('H:i') . ')';
+        $tellerName = auth()->user()->officer_name ?? auth()->user()->username ?? 'Teller';
+        $noteAppend = 'Top-Up Kas Laci oleh ' . $tellerName . ': +Rp ' . number_format($addedAmount, 0, ',', '.') . ' (' . now()->format('H:i') . ')';
         if ($request->filled('notes')) {
             $noteAppend .= ' - ' . $request->notes;
         }
@@ -113,13 +125,13 @@ class TellerShiftController extends Controller
         \App\Models\AuditLog::record(
             'TAMBAH_KAS_LACI',
             'Shift Kasir',
-            'Menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . ($request->filled('notes') ? (' (' . $request->notes . ')') : ''),
+            'Menambahkan uang kas laci bersama sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . ($request->filled('notes') ? (' (' . $request->notes . ')') : ''),
             auth()->id(),
-            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
+            $tellerName
         );
 
         return redirect()->back()
-            ->with('success', 'Berhasil menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . '! Total modal kas laci telah diperbarui.');
+            ->with('success', 'Berhasil menambahkan uang kas laci sebesar Rp ' . number_format($addedAmount, 0, ',', '.') . '! Total modal kas laci bersama telah diperbarui.');
     }
 
     /**
@@ -127,35 +139,21 @@ class TellerShiftController extends Controller
      */
     public function close()
     {
-        // 1. Find the active shift for the authenticated teller
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
             return redirect()->back(fallback: route('teller.dashboard'))
                 ->with('error', 'Tidak ada laci kasir yang sedang aktif.');
         }
 
-        // 2. Extract opening balance
-        $saldoAwal = $activeShift->opening_balance;
+        $activeShift->attachTeller(auth()->id());
 
-        // 3. Calculate total successful deposits since shift opened
-        $totalSetoran = Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        // 4. Calculate total successful withdrawals since shift opened
-        $totalPenarikan = Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        // 5. Calculate target system balance
-        $targetSaldo = $saldoAwal + $totalSetoran - $totalPenarikan;
+        $saldoAwal = (float) ($activeShift->opening_balance ?? 0);
+        $totalSetoran = $activeShift->calculateTotalDeposits();
+        $totalPenarikan = $activeShift->calculateTotalWithdrawals();
+        $targetSaldo = $activeShift->calculateSystemBalance();
+        $breakdown = $activeShift->getBreakdownPerTeller();
+        $participatingTellers = $activeShift->getParticipatingTellers();
 
         // Legacy aliases
         $totalDeposit           = $totalSetoran;
@@ -170,12 +168,14 @@ class TellerShiftController extends Controller
             'targetSaldo',
             'totalDeposit',
             'totalWithdrawal',
-            'estimatedSystemBalance'
+            'estimatedSystemBalance',
+            'breakdown',
+            'participatingTellers'
         ));
     }
 
     /**
-     * Proses penutupan shift kasir, hitung saldo sistem, dan kunci shift.
+     * Proses penutupan shift kasir bersama, hitung saldo sistem, dan kunci shift.
      */
     public function endShift(Request $request)
     {
@@ -198,35 +198,24 @@ class TellerShiftController extends Controller
             'physical_cash.numeric'  => 'Nominal uang fisik harus berupa angka valid.',
         ]);
 
-        // 2. Get active shift
-        $activeShift = TellerShift::where('user_id', auth()->id())
-            ->where('status', 'Open')
-            ->first();
+        // 2. Get active shared shift
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
             return redirect()->back(fallback: route('teller.dashboard'))
                 ->with('error', 'Tidak ada laci kasir yang sedang aktif.');
         }
 
-        // 3. SECURITY CRITICAL: Strictly recalculate calculations server-side
-        $saldoAwal = $activeShift->opening_balance;
+        $activeShift->attachTeller(auth()->id());
 
-        $totalSetoran = Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        $totalPenarikan = Transaction::where('user_id', auth()->id())
-            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        $targetSaldo = $saldoAwal + $totalSetoran - $totalPenarikan;
+        // 3. SECURITY CRITICAL: Strictly calculate using all participating tellers in the shared shift
+        $saldoAwal = (float) ($activeShift->opening_balance ?? 0);
+        $totalSetoran = $activeShift->calculateTotalDeposits();
+        $totalPenarikan = $activeShift->calculateTotalWithdrawals();
+        $targetSaldo = $activeShift->calculateSystemBalance();
 
         // 4. Calculate difference
-        $selisih = $request->physical_cash - $targetSaldo;
+        $selisih = (float)$request->physical_cash - $targetSaldo;
 
         // 5. Validate notes: If $selisih != 0, enforce notes
         if ($selisih != 0 && empty($request->notes)) {
@@ -236,38 +225,125 @@ class TellerShiftController extends Controller
                 ->withInput();
         }
 
-        // 6. Update TellerShift record
-        $activeShift->update([
+        // 6. Buat ringkasan kontribusi teller
+        $breakdown = $activeShift->getBreakdownPerTeller();
+        $tellerNames = collect($breakdown)->pluck('name')->implode(', ');
+        $breakdownSummary = collect($breakdown)->map(function($b) {
+            return $b['name'] . ': Setor Rp ' . number_format($b['deposit_total'], 0, ',', '.') . ' (' . $b['deposit_count'] . ' trx), Tarik Rp ' . number_format($b['withdrawal_total'], 0, ',', '.') . ' (' . $b['withdrawal_count'] . ' trx)';
+        })->implode(' | ');
+
+        $finalNotes = $request->notes;
+        $sharedNoteAppend = "Petugas Shift Bersama: [{$tellerNames}]. Ditutup oleh: " . (auth()->user()->officer_name ?: auth()->user()->username) . ". Rincian: " . $breakdownSummary;
+        $finalNotes = $finalNotes ? ($finalNotes . " | " . $sharedNoteAppend) : $sharedNoteAppend;
+
+        // 7. Update TellerShift record
+        $updateData = [
             'closing_balance' => $request->physical_cash,
             'system_balance'  => $targetSaldo,
             'difference'      => $selisih,
-            'notes'           => $request->notes,
+            'notes'           => $finalNotes,
             'status'          => 'Closed',
             'closed_at'       => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('teller_shifts', 'closed_by')) {
+            $updateData['closed_by'] = auth()->id();
+        }
+
+        $activeShift->update($updateData);
 
         // Synchronize with DailyReport table if available
         DailyReport::create([
-            'teller_id'                => auth()->id(),
+            'teller_id'                => $activeShift->user_id, // Opener sebagai anchor
             'report_date'              => now()->toDateString(),
             'opening_balance'          => $saldoAwal,
             'total_deposits'           => $totalSetoran,
             'total_withdrawals'        => $totalPenarikan,
             'closing_balance_system'   => $targetSaldo,
             'closing_balance_physical' => $request->physical_cash,
-            'notes'                    => $request->notes,
+            'notes'                    => $finalNotes,
             'status'                   => 'pending',
         ]);
 
         \App\Models\AuditLog::record(
             'TUTUP_SHIFT_KAS',
             'Rekonsiliasi Kas',
-            'Mengirim laporan penutupan kas laci dengan uang fisik Rp ' . number_format($request->physical_cash, 0, ',', '.') . ' (Sistem: Rp ' . number_format($targetSaldo, 0, ',', '.') . ', Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')',
+            'Mengirim laporan penutupan kas laci bersama (' . $tellerNames . ') dengan uang fisik Rp ' . number_format($request->physical_cash, 0, ',', '.') . ' (Sistem: Rp ' . number_format($targetSaldo, 0, ',', '.') . ', Selisih: Rp ' . number_format($selisih, 0, ',', '.') . ')',
             auth()->id(),
             auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Teller'
         );
 
         return redirect()->route('teller.dashboard')
-            ->with('success', 'Laporan penutupan kas berhasil dikirim ke Administrator.');
+            ->with('success', 'Laporan penutupan kas laci bersama berhasil dikirim ke Administrator.');
+    }
+
+    /**
+     * Endpoint API Live Status untuk sinkronisasi kas laci real-time antar teller se-shift.
+     */
+    public function liveStatus()
+    {
+        $activeShift = TellerShift::getActiveOpenShift();
+
+        if (!$activeShift) {
+            return response()->json([
+                'success' => false,
+                'status'  => 'Closed',
+                'message' => 'Tidak ada shift yang aktif.',
+            ]);
+        }
+
+        if (auth()->check() && auth()->user()->role === 'Teller') {
+            $activeShift->attachTeller(auth()->id());
+        }
+
+        $drawerCash = $activeShift->calculateCurrentDrawerCash();
+        $totalDeposits = $activeShift->calculateTotalDeposits();
+        $totalWithdrawals = $activeShift->calculateTotalWithdrawals();
+        $tellers = $activeShift->getParticipatingTellers()->map(function($u) {
+            return [
+                'id'   => $u->id,
+                'name' => $u->officer_name ?: $u->username,
+            ];
+        });
+
+        // Ambil transaksi terakhir pada shift ini
+        $userIds = $activeShift->getParticipatingUserIds();
+        $latestTx = Transaction::with('user')
+            ->whereIn('user_id', $userIds)
+            ->where('created_at', '>=', $activeShift->opened_at ?? $activeShift->created_at)
+            ->where('status', '!=', 'Failed')
+            ->latest()
+            ->first();
+
+        $latestTxData = null;
+        if ($latestTx) {
+            $txTellerName = $latestTx->user ? ($latestTx->user->officer_name ?: $latestTx->user->username) : 'Teller';
+            $latestTxData = [
+                'id'           => $latestTx->id,
+                'type'         => $latestTx->transaction_type,
+                'amount'       => (float) $latestTx->amount,
+                'formatted'    => 'Rp ' . number_format($latestTx->amount, 0, ',', '.'),
+                'teller_id'    => $latestTx->user_id,
+                'teller_name'  => $txTellerName,
+                'time'         => $latestTx->created_at->timezone('Asia/Jakarta')->format('H:i:s'),
+                'is_my_tx'     => ($latestTx->user_id === auth()->id()),
+            ];
+        }
+
+        return response()->json([
+            'success'               => true,
+            'status'                => 'Open',
+            'shift_id'              => $activeShift->id,
+            'opening_balance'       => (float) $activeShift->opening_balance,
+            'current_drawer_cash'   => $drawerCash,
+            'formatted_drawer_cash' => 'Rp ' . number_format($drawerCash, 0, ',', '.'),
+            'total_deposits'        => $totalDeposits,
+            'total_withdrawals'     => $totalWithdrawals,
+            'tellers'               => $tellers,
+            'tellers_count'         => $tellers->count(),
+            'is_shared'             => ($tellers->count() > 1),
+            'latest_tx'             => $latestTxData,
+            'timestamp'             => now()->timestamp,
+        ]);
     }
 }

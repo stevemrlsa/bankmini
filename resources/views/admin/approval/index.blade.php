@@ -143,7 +143,14 @@
                                             {{ strtoupper(substr($report->teller->officer_name ?? $report->teller->username ?? 'T', 0, 1)) }}
                                         </div>
                                         <div>
-                                            <div class="fw-semibold text-dark">{{ $report->teller->officer_name ?? $report->teller->username ?? 'Teller' }}</div>
+                                            <div class="fw-semibold text-dark d-flex align-items-center gap-1">
+                                                {{ $report->teller->officer_name ?? $report->teller->username ?? 'Teller' }}
+                                                @if(str_contains($report->notes ?? '', 'Shift Bersama') || ($report->shift && count($report->shift->getParticipatingUserIds()) > 1))
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0" style="font-size: 0.68rem;">
+                                                        <i class="bi bi-people-fill me-1"></i>Shift Bersama
+                                                    </span>
+                                                @endif
+                                            </div>
                                             <small class="text-muted">{{ $report->teller->role ?? 'Teller' }}</small>
                                         </div>
                                     </div>

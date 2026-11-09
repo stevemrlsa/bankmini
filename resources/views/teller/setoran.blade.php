@@ -334,8 +334,16 @@
     <div class="form-stage no-print">
         <div class="transaction-card">
 
-            <div class="transaction-icon-badge">
-                <i class="bi bi-arrow-down-circle-fill"></i>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="transaction-icon-badge mb-0">
+                    <i class="bi bi-arrow-down-circle-fill"></i>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted" style="font-size: 0.74rem;">Uang Kas Fisik di Laci (Bersama):</div>
+                    <div class="fw-bold text-success" id="displayUangFisikLaci" style="font-size: 0.95rem;">
+                        Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}
+                    </div>
+                </div>
             </div>
             <h2>Setoran Tunai</h2>
             <p class="desc">Scan QR Code kartu siswa atau ketik nomor rekening nasabah.</p>
@@ -811,6 +819,25 @@ document.addEventListener('DOMContentLoaded', function () {
             fetchSaverData(this.value.trim(), false);
         }
     });
+
+    // Live sync polling untuk laci kas bersama
+    async function pollLiveDrawerCash() {
+        try {
+            const res = await fetch("{{ route('teller.shift.live-status') }}", {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.success) {
+                const displayEl = document.getElementById('displayUangFisikLaci');
+                if (displayEl) {
+                    displayEl.textContent = data.formatted_drawer_cash;
+                    displayEl.className = 'fw-bold ' + (Number(data.current_drawer_cash) <= 50000 ? 'text-danger' : 'text-success');
+                }
+            }
+        } catch (e) {}
+    }
+    setInterval(pollLiveDrawerCash, 4000);
 
     // Auto-search jika ada parameter ?account_number= di URL (misal dari dashboard)
     const urlParams = new URLSearchParams(window.location.search);

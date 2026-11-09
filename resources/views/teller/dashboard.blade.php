@@ -518,8 +518,13 @@
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <div class="shift-chip"><i class="bi bi-clock-fill"></i> Shift Aktif · Modal Awal: Rp {{ number_format($saldoAwal ?? ($activeShift->opening_balance ?? 0), 0, ',', '.') }}</div>
                     <div class="shift-chip" style="background: rgba(16, 185, 129, 0.22); border-color: rgba(16, 185, 129, 0.4); color: #A7F3D0;">
-                        <i class="bi bi-cash-stack"></i> Sisa Kas Fisik Laci: <strong class="text-white">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</strong>
+                        <i class="bi bi-cash-stack"></i> Sisa Kas Fisik Laci: <strong class="text-white drawer-cash-value">Rp {{ number_format($saldoKas ?? 0, 0, ',', '.') }}</strong>
                     </div>
+                    @if(isset($isSharedShift) && $isSharedShift)
+                    <div class="shift-chip" style="background: rgba(59, 130, 246, 0.22); border-color: rgba(59, 130, 246, 0.4); color: #BFDBFE;">
+                        <i class="bi bi-people-fill"></i> Shift Bersama ({{ $participatingTellers->count() }} Teller): <strong class="text-white">{{ $participatingTellers->pluck('officer_name')->filter()->implode(' & ') ?: $participatingTellers->pluck('username')->implode(' & ') }}</strong>
+                    </div>
+                    @endif
                 </div>
             </div>
             <div class="d-flex flex-column align-items-start align-items-md-end gap-2" style="position: relative; z-index: 2;">
@@ -1578,6 +1583,79 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) {
         console.error("Gagal inisialisasi Html5Qrcode:", e);
     }
+
+    // ========================================================
+    // SINKRONISASI REAL-TIME LACI KAS BERSAMA MULTI-TELLER
+    // ========================================================
+    let lastKnownCash = {{ (float) ($saldoKas ?? 0) }};
+    let lastKnownTxId = null;
+
+    function showLiveSyncNotification(message) {
+        let notifEl = document.getElementById('liveSyncToastPill');
+        if (!notifEl) {
+            notifEl = document.createElement('div');
+            notifEl.id = 'liveSyncToastPill';
+            notifEl.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: #0F172A; color: #F8FAFC; padding: 12px 20px; border-radius: 50px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.15); transition: opacity 0.3s ease, transform 0.3s ease; opacity: 0; transform: translateY(15px); pointer-events: none;';
+            document.body.appendChild(notifEl);
+        }
+        notifEl.innerHTML = `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#10B981; box-shadow: 0 0 8px #10B981;"></span> ${message}`;
+        notifEl.style.opacity = '1';
+        notifEl.style.transform = 'translateY(0)';
+
+        setTimeout(() => {
+            notifEl.style.opacity = '0';
+            notifEl.style.transform = 'translateY(15px)';
+        }, 4000);
+    }
+
+    async function pollSharedDrawerCash() {
+        try {
+            const res = await fetch("{{ route('teller.shift.live-status') }}", {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || !data.success) return;
+
+            const newCash = Number(data.current_drawer_cash);
+            if (newCash !== lastKnownCash) {
+                const diff = newCash - lastKnownCash;
+                lastKnownCash = newCash;
+
+                // 1. Update elemen stat di Dashboard
+                const statSaldoKasEl = document.getElementById('statSaldoKas');
+                if (statSaldoKasEl) {
+                    statSaldoKasEl.textContent = data.formatted_drawer_cash;
+                    statSaldoKasEl.style.transition = 'color 0.3s ease';
+                    statSaldoKasEl.style.color = '#059669';
+                    setTimeout(() => statSaldoKasEl.style.color = '', 1500);
+                }
+
+                // 2. Update seluruh elemen berkelas .drawer-cash-value
+                document.querySelectorAll('.drawer-cash-value').forEach(el => {
+                    el.textContent = data.formatted_drawer_cash;
+                });
+
+                // 3. Update limit penarikan pada modal penarikan dashboard jika ada
+                const withdrawInput = document.getElementById('withdrawal_amount');
+                if (withdrawInput) {
+                    withdrawInput.max = newCash;
+                }
+
+                // 4. Munculkan pill notifikasi jika perubahan berasal dari rekan teller lain
+                if (data.latest_tx && !data.latest_tx.is_my_tx && data.latest_tx.id !== lastKnownTxId) {
+                    lastKnownTxId = data.latest_tx.id;
+                    const diffText = diff > 0 ? `+Rp ${diff.toLocaleString('id-ID')}` : `-Rp ${Math.abs(diff).toLocaleString('id-ID')}`;
+                    showLiveSyncNotification(`Kas Laci: ${diffText} (${data.latest_tx.type} oleh ${data.latest_tx.teller_name})`);
+                }
+            }
+        } catch (err) {
+            // Abaikan error jaringan sementara
+        }
+    }
+
+    // Jalankan polling setiap 4 detik untuk update laci bersama
+    setInterval(pollSharedDrawerCash, 4000);
 
     // Cek jika ada parameter ?account_number= di URL (misal redirect lama), bersihkan agar tidak loop
     const urlParams = new URLSearchParams(window.location.search);

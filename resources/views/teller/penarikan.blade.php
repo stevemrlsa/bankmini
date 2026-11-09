@@ -340,7 +340,7 @@
                 </div>
                 <div class="text-end">
                     <div class="small text-muted" style="font-size: 0.74rem;">Uang Kas Fisik di Laci:</div>
-                    <div class="fw-bold {{ ($uangFisikDiLaci ?? 0) <= 50000 ? 'text-danger' : 'text-success' }}" style="font-size: 0.95rem;">
+                    <div class="fw-bold {{ ($uangFisikDiLaci ?? 0) <= 50000 ? 'text-danger' : 'text-success' }}" id="displayUangFisikLaci" style="font-size: 0.95rem;">
                         Rp {{ number_format($uangFisikDiLaci ?? 0, 0, ',', '.') }}
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2 py-0 mt-1 fw-semibold" style="font-size: 0.72rem;" data-bs-toggle="modal" data-bs-target="#modalTopUpKas">
@@ -773,6 +773,7 @@
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    let currentLiveDrawerCash = {{ (float) ($uangFisikDiLaci ?? 0) }};
     // DOM Elements - Scanner
     const btnOpenScanner       = document.getElementById('btnOpenScanner');
     const qrModalEl            = document.getElementById('qrScannerModal');
@@ -1064,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', function () {
             amountInput.focus();
             return;
         }
-        const maxDrawerCash = {{ (float) ($uangFisikDiLaci ?? 0) }};
+        let maxDrawerCash = currentLiveDrawerCash;
         if (maxDrawerCash <= 0 || parseInt(amountInput.value) > maxDrawerCash) {
             alert('Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' + maxDrawerCash.toLocaleString('id-ID') + '). Silakan tambah kas laci terlebih dahulu.');
             amountInput.focus();
@@ -1109,6 +1110,26 @@ document.addEventListener('DOMContentLoaded', function () {
     if (initialAmount) {
         amountInput.value = initialAmount;
     }
+
+    // Live sync polling untuk laci kas bersama
+    async function pollLiveDrawerCash() {
+        try {
+            const res = await fetch("{{ route('teller.shift.live-status') }}", {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.success) {
+                currentLiveDrawerCash = Number(data.current_drawer_cash);
+                const displayEl = document.getElementById('displayUangFisikLaci');
+                if (displayEl) {
+                    displayEl.textContent = data.formatted_drawer_cash;
+                    displayEl.className = 'fw-bold ' + (currentLiveDrawerCash <= 50000 ? 'text-danger' : 'text-success');
+                }
+            }
+        } catch (e) {}
+    }
+    setInterval(pollLiveDrawerCash, 4000);
 
     if (initialAcc) {
         fetchSaverData(initialAcc, true);

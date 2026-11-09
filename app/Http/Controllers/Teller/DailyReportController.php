@@ -89,35 +89,24 @@ class DailyReportController extends Controller
             'physical_cash.numeric'  => 'Nominal uang fisik harus berupa angka valid.',
         ]);
 
-        // 2. Get active shift
-        $activeShift = TellerShift::where('user_id', Auth::id())
-            ->where('status', 'Open')
-            ->first();
+        // 2. Get active shared shift
+        $activeShift = TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
             return redirect()->back(fallback: route('teller.dashboard'))
                 ->with('error', 'Tidak ada laci kasir yang sedang aktif.');
         }
 
-        // 3. SECURITY CRITICAL: Strictly recalculate calculations server-side
-        $saldoAwal = $activeShift->opening_balance;
+        $activeShift->attachTeller(Auth::id());
 
-        $totalSetoran = Transaction::where('user_id', Auth::id())
-            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        $totalPenarikan = Transaction::where('user_id', Auth::id())
-            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        $targetSaldo = $saldoAwal + $totalSetoran - $totalPenarikan;
+        // 3. SECURITY CRITICAL: Strictly calculate using all participating tellers in the shared shift
+        $saldoAwal = (float) ($activeShift->opening_balance ?? 0);
+        $totalSetoran = $activeShift->calculateTotalDeposits();
+        $totalPenarikan = $activeShift->calculateTotalWithdrawals();
+        $targetSaldo = $activeShift->calculateSystemBalance();
 
         // 4. Calculate difference
-        $selisih = $request->physical_cash - $targetSaldo;
+        $selisih = (float)$request->physical_cash - $targetSaldo;
 
         // 5. Validate notes: If $selisih != 0, enforce that $request->notes is required
         if ($selisih != 0 && empty($request->notes)) {
@@ -127,26 +116,41 @@ class DailyReportController extends Controller
                 ->withInput();
         }
 
-        // 6. Update the TellerShift record
-        $activeShift->update([
+        // 6. Ringkasan petugas shift bersama
+        $breakdown = $activeShift->getBreakdownPerTeller();
+        $tellerNames = collect($breakdown)->pluck('name')->implode(', ');
+        $breakdownSummary = collect($breakdown)->map(function($b) {
+            return $b['name'] . ': Setor Rp ' . number_format($b['deposit_total'], 0, ',', '.') . ' (' . $b['deposit_count'] . ' trx), Tarik Rp ' . number_format($b['withdrawal_total'], 0, ',', '.') . ' (' . $b['withdrawal_count'] . ' trx)';
+        })->implode(' | ');
+
+        $finalNotes = $request->notes;
+        $sharedNoteAppend = "Petugas Shift Bersama: [{$tellerNames}]. Ditutup oleh: " . (Auth::user()->officer_name ?: Auth::user()->username) . ". Rincian: " . $breakdownSummary;
+        $finalNotes = $finalNotes ? ($finalNotes . " | " . $sharedNoteAppend) : $sharedNoteAppend;
+
+        // 7. Update the TellerShift record
+        $updateData = [
             'closing_balance' => $request->physical_cash,
             'system_balance'  => $targetSaldo,
             'difference'      => $selisih,
-            'notes'           => $request->notes,
+            'notes'           => $finalNotes,
             'status'          => 'Closed',
             'closed_at'       => now(),
-        ]);
+        ];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('teller_shifts', 'closed_by')) {
+            $updateData['closed_by'] = Auth::id();
+        }
+        $activeShift->update($updateData);
 
         // Synchronize with DailyReport table for administrative approval workflow
         DailyReport::create([
-            'teller_id'                => Auth::id(),
+            'teller_id'                => $activeShift->user_id,
             'report_date'              => now()->toDateString(),
             'opening_balance'          => $saldoAwal,
             'total_deposits'           => $totalSetoran,
             'total_withdrawals'        => $totalPenarikan,
             'closing_balance_system'   => $targetSaldo,
             'closing_balance_physical' => $request->physical_cash,
-            'notes'                    => $request->notes,
+            'notes'                    => $finalNotes,
             'status'                   => 'pending',
         ]);
 

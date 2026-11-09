@@ -75,6 +75,44 @@
                     </div>
                 </div>
 
+                {{-- Rincian Petugas Shift Bersama --}}
+                @if(isset($breakdown) && count($breakdown) > 0)
+                <div class="p-3 mb-4 rounded-4 text-start bg-light border">
+                    <h6 class="fw-bold text-dark mb-2" style="font-size: 0.9rem;">
+                        <i class="bi bi-people-fill text-primary me-2"></i>Rincian Kontribusi Petugas (Shift Bersama)
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless mb-0" style="font-size: 0.82rem;">
+                            <thead>
+                                <tr class="text-muted border-bottom">
+                                    <th>Petugas</th>
+                                    <th class="text-end">Setoran</th>
+                                    <th class="text-end">Penarikan</th>
+                                    <th class="text-end">Arus Kas Bersih</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($breakdown as $b)
+                                <tr>
+                                    <td class="fw-semibold text-dark">
+                                        {{ $b['name'] }}
+                                        @if($b['is_opener'])
+                                            <span class="badge bg-primary-subtle text-primary py-0 px-1" style="font-size: 0.68rem;">Pembuka Laci</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end text-success">+ Rp {{ number_format($b['deposit_total'], 0, ',', '.') }} <small class="text-muted">({{ $b['deposit_count'] }})</small></td>
+                                    <td class="text-end text-danger">- Rp {{ number_format($b['withdrawal_total'], 0, ',', '.') }} <small class="text-muted">({{ $b['withdrawal_count'] }})</small></td>
+                                    <td class="text-end fw-bold {{ $b['net_cash_flow'] >= 0 ? 'text-primary' : 'text-danger' }}">
+                                        Rp {{ number_format($b['net_cash_flow'], 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
+
                 {{-- Form End Shift --}}
                 <form method="POST" action="{{ route('teller.shift.end') }}" class="text-start">
                     @csrf

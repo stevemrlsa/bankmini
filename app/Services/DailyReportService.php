@@ -53,21 +53,14 @@ class DailyReportService
                 $teller = $shift->user;
                 $tellerName = $teller ? ($teller->officer_name ?: $teller->username) : ('Teller #' . $shift->user_id);
 
-                $saldoAwal = (float) $shift->opening_balance;
+                $saldoAwal = (float) ($shift->opening_balance ?? 0);
+                $totalSetoran = $shift->calculateTotalDeposits();
+                $totalPenarikan = $shift->calculateTotalWithdrawals();
+                $targetSaldo = $shift->calculateSystemBalance();
 
-                $totalSetoran = (float) Transaction::where('user_id', $shift->user_id)
-                    ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-                    ->where('created_at', '>=', $shift->opened_at)
-                    ->where('status', '!=', 'Failed')
-                    ->sum('amount');
-
-                $totalPenarikan = (float) Transaction::where('user_id', $shift->user_id)
-                    ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-                    ->where('created_at', '>=', $shift->opened_at)
-                    ->where('status', '!=', 'Failed')
-                    ->sum('amount');
-
-                $targetSaldo = $saldoAwal + $totalSetoran - $totalPenarikan;
+                $breakdown = $shift->getBreakdownPerTeller();
+                $tellerNames = collect($breakdown)->pluck('name')->implode(', ');
+                $tellerName = $tellerNames ?: ($teller ? ($teller->officer_name ?: $teller->username) : ('Teller #' . $shift->user_id));
 
                 $autoNote = "[Sistem Otomatis 16:30] Laporan dikirim otomatis oleh sistem karena teller belum mengirim laporan harian hingga pukul 16:30. Kas fisik laci dikosongkan untuk verifikasi fisik manual.";
                 if (!empty($shift->notes)) {
