@@ -153,12 +153,51 @@ class TransactionApiController extends Controller
                 }
 
                 if (!Hash::check($request->security_pin, $saver->security_pin)) {
-                    throw new \Exception('Invalid security PIN', 403);
+                    throw new \Exception('PIN keamanan 6-digit salah.', 403);
                 }
 
-                $sisaSaldo = $saver->saldo - $request->amount;
+                $nominalTarik = (float) $request->amount;
+
+                // 1. Cek saldo mengendap minimal Rp 10.000
+                $sisaSaldo = (float) $saver->saldo - $nominalTarik;
                 if ($sisaSaldo < 10000) {
-                    throw new \Exception('Withdrawal Rejected : Minimum balance remining must be Rp 10.000', 400);
+                    $maxBisaDitarik = max(0, (float) $saver->saldo - 10000);
+                    throw new \Exception('Penarikan Ditolak: Saldo minimal mengendap adalah Rp 10.000. Maksimal yang dapat ditarik: Rp ' . number_format($maxBisaDitarik, 0, ',', '.'), 400);
+                }
+
+                // 2. Cek ketersediaan uang kas fisik di laci kasir bersama
+                $activeShift = \App\Models\TellerShift::getActiveOpenShift();
+                if ($activeShift) {
+                    $activeShift->attachTeller($request->user()->id);
+                    $kasLaciTersedia = $activeShift->calculateCurrentDrawerCash();
+                    if ($kasLaciTersedia <= 0 || $nominalTarik > $kasLaciTersedia) {
+                        throw new \Exception('Penarikan Ditolak: Uang kas fisik di laci tidak mencukupi (Tersedia: Rp ' . number_format($kasLaciTersedia, 0, ',', '.') . ').', 400);
+                    }
+                }
+
+                // 3. Aturan Batas Penarikan: Reguler (<= 1jt) vs Pengajuan Penarikan (> 1jt)
+                $withdrawalReq = null;
+                if ($nominalTarik > 1000000) {
+                    $withdrawalReq = \App\Models\WithdrawalRequest::where('saver_id', $saver->id)
+                        ->where('status', 'approved')
+                        ->where('amount', '>=', $nominalTarik)
+                        ->latest()
+                        ->first();
+                    if (!$withdrawalReq) {
+                        throw new \Exception('Penarikan Ditolak: Penarikan di atas Rp 1.000.000 wajib membuat Pengajuan Penarikan minimal H-1 dan telah disetujui.', 400);
+                    }
+                } else {
+                    $maxRegulerPerHari = 1000000;
+                    $todayWithdrawn = (float) Transaction::where('saver_id', $saver->id)
+                        ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
+                        ->whereDate('created_at', today())
+                        ->where('status', '!=', 'Failed')
+                        ->where('amount', '<=', $maxRegulerPerHari)
+                        ->sum('amount');
+                    if (($todayWithdrawn + $nominalTarik) > $maxRegulerPerHari) {
+                        $sisaKuota = max(0, $maxRegulerPerHari - $todayWithdrawn);
+                        throw new \Exception('Penarikan Ditolak: Batas penarikan reguler adalah Rp 1.000.000 per hari. Sisa kuota hari ini: Rp ' . number_format($sisaKuota, 0, ',', '.'), 400);
+                    }
                 }
 
                 $transaction = Transaction::create([
@@ -166,10 +205,16 @@ class TransactionApiController extends Controller
                     'user_id' => $request->user()->id,
                     'transaction_date' => now(),
                     'transaction_type' => 'Withdrawal',
-                    'amount' => $request->amount,
+                    'amount' => $nominalTarik,
                 ]);
 
-                $saver->saldo -= $request->amount;
+                if ($withdrawalReq) {
+                    $withdrawalReq->status = 'disbursed';
+                    $withdrawalReq->transaction_id = $transaction->id;
+                    $withdrawalReq->save();
+                }
+
+                $saver->saldo -= $nominalTarik;
                 $saver->save();
 
                 DB::table('accounting_journals')->insert([

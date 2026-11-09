@@ -82,16 +82,21 @@ class TellerShift extends Model
             return;
         }
 
+        // Cek secara aman jika kolom shared_user_ids sudah ada di database hosting/lokal
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('teller_shifts', 'shared_user_ids')) {
+            return;
+        }
+
         $shared = is_array($this->shared_user_ids) ? $this->shared_user_ids : [];
         if (!in_array($userId, $shared)) {
             $shared[] = $userId;
             $this->shared_user_ids = array_values(array_unique($shared));
             
-            // Simpan secara aman jika kolom shared_user_ids sudah ada di database
             try {
                 $this->save();
             } catch (\Throwable $e) {
-                // Fallback jika migrasi belum dijalankan
+                // Jangan biarkan dirty attribute jika gagal
+                unset($this->attributes['shared_user_ids']);
             }
         }
     }
@@ -102,7 +107,7 @@ class TellerShift extends Model
     public function getParticipatingUserIds(): array
     {
         $ids = [$this->user_id];
-        if (!empty($this->shared_user_ids)) {
+        if (\Illuminate\Support\Facades\Schema::hasColumn('teller_shifts', 'shared_user_ids') && !empty($this->shared_user_ids)) {
             $shared = is_array($this->shared_user_ids) ? $this->shared_user_ids : json_decode((string)$this->shared_user_ids, true);
             if (is_array($shared)) {
                 $ids = array_merge($ids, $shared);

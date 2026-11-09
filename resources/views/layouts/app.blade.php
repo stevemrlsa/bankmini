@@ -173,23 +173,22 @@
         .sidebar-glider {
             position: absolute;
             left: 0;
-            right: -6px;
+            right: 0;
             height: 48px;
             min-height: 48px;
             flex-shrink: 0;
             background: var(--bg-main);
-            border-top-left-radius: 30px;
-            border-bottom-left-radius: 30px;
+            border-top-left-radius: 25px;
+            border-bottom-left-radius: 25px;
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
             z-index: 1;
             pointer-events: none;
-            opacity: 1;
-            box-shadow: 6px 0 0 0 var(--bg-main);
+            opacity: 0;
+            display: none;
             transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1),
-                        height 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+                        opacity 0.15s ease;
             will-change: transform;
-            contain: layout paint;
         }
 
         .sidebar-glider::before {
@@ -201,6 +200,7 @@
             height: 20px;
             background: radial-gradient(circle at 0 0, transparent 19.5px, var(--bg-main) 20px);
             pointer-events: none;
+            z-index: 1;
         }
 
         .sidebar-glider::after {
@@ -212,6 +212,7 @@
             height: 20px;
             background: radial-gradient(circle at 0 100%, transparent 19.5px, var(--bg-main) 20px);
             pointer-events: none;
+            z-index: 1;
         }
 
         .sidebar-nav .nav-link {
@@ -224,15 +225,15 @@
             height: 48px;
             min-height: 48px;
             flex-shrink: 0;
-            padding: 0 18px 0 18px;
-            margin-right: -6px;
-            border-top-left-radius: 30px;
-            border-bottom-left-radius: 30px;
+            padding: 0 18px;
+            margin-right: 0;
+            border-top-left-radius: 25px;
+            border-bottom-left-radius: 25px;
             border-top-right-radius: 0;
             border-bottom-right-radius: 0;
             font-size: 0.88rem;
             font-weight: 500;
-            line-height: 1;
+            line-height: normal;
             transition: color 0.22s ease, transform 0.18s ease, background-color 0.18s ease;
             background: transparent !important;
             text-decoration: none;
@@ -242,15 +243,16 @@
         }
 
         .sidebar-nav .nav-link i {
-            font-size: 1.12rem;
+            font-size: 1.15rem;
             width: 22px;
+            height: 22px;
             text-align: center;
             flex-shrink: 0;
             opacity: 0.85;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin-top: 2px;
+            margin: 0;
             transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.25s ease, opacity 0.25s ease;
         }
 
@@ -1157,7 +1159,11 @@
                                     g.style.transition = 'none';
                                     g.style.transform = 'translateY(' + a.offsetTop + 'px)';
                                     g.style.height = '48px';
+                                    g.style.display = 'block';
                                     g.style.opacity = '1';
+                                } else {
+                                    g.style.display = 'none';
+                                    g.style.opacity = '0';
                                 }
                             }
                         } catch(e) {}
@@ -1476,10 +1482,16 @@
         const progressBar = document.getElementById('topProgressBar');
 
         function moveSidebarGlider(targetLink, animate = true) {
-            if (!sidebarNav || !sidebarGlider || !targetLink) return;
+            if (!sidebarNav || !sidebarGlider) return;
+            if (!targetLink) {
+                sidebarGlider.style.display = 'none';
+                sidebarGlider.style.opacity = '0';
+                return;
+            }
 
             const topPos = targetLink.offsetTop;
             const itemHeight = 48; // Konsisten 48px baik Admin maupun Teller
+            sidebarGlider.style.display = 'block';
 
             if (!animate) {
                 sidebarGlider.style.transition = 'none';
@@ -1502,6 +1514,7 @@
 
             const activeLink = sidebarNav.querySelector('.nav-link.active');
             if (activeLink) {
+                sidebarGlider.style.display = 'block';
                 const prevTop = sessionStorage.getItem('bankmini_active_glider_top');
                 const targetTop = activeLink.offsetTop;
 
@@ -1528,6 +1541,9 @@
                 if (linkRect.bottom > navRect.bottom || linkRect.top < navRect.top) {
                     sidebarNav.scrollTop = Math.max(0, targetTop - 70);
                 }
+            } else {
+                sidebarGlider.style.display = 'none';
+                sidebarGlider.style.opacity = '0';
             }
 
             // Saat klik item di sidebar, jalankan luncuran mulus terlebih dahulu sebelum navigasi
