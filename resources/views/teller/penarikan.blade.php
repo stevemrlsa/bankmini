@@ -331,7 +331,7 @@
 
 @section('content')
 
-    <div class="form-stage">
+    <div class="form-stage no-print">
         <div class="transaction-card">
 
             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -704,7 +704,7 @@
                     <hr style="border-top: 1px dashed #94A3B8;">
                     <small class="text-muted d-block text-center mb-3">Simpan struk ini sebagai bukti transaksi penarikan yang sah.</small>
 
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 no-print">
                         <button type="button" class="btn btn-secondary rounded-pill flex-fill" onclick="document.getElementById('modalReceipt').style.display='none'">Tutup</button>
                         <button type="button" class="btn btn-primary rounded-pill flex-fill" onclick="window.print()">
                             <i class="bi bi-printer me-1"></i> Cetak Struk
@@ -717,7 +717,7 @@
     @endif
 
     <!-- Modal Tambah Uang Kas Laci (Top-Up Kas Shift) -->
-    <div class="modal fade" id="modalTopUpKas" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal fade no-print" id="modalTopUpKas" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.22); overflow: hidden;">
                 <div class="modal-header border-0 pb-0 pt-4 px-4">

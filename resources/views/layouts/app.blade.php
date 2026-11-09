@@ -965,18 +965,119 @@
                 font-size: 0.78rem !important;
             }
         }
+
+        /* ===== Receipt Print Mode (Hanya cetak struk tanpa tumpuk background) ===== */
+        @media print {
+            .no-print,
+            .no-print *,
+            .sidebar,
+            .sidebar-backdrop,
+            .topbar,
+            #topProgressBar,
+            .toast,
+            .alert,
+            header,
+            aside,
+            footer {
+                display: none !important;
+            }
+
+            html, body {
+                background: #FFFFFF !important;
+                background-color: #FFFFFF !important;
+                color: #0F172A !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .app-shell, .main-wrapper, .content-area {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: transparent !important;
+                display: block !important;
+                width: 100% !important;
+                min-height: 0 !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            /* Un-modalize the receipt modal so it prints cleanly as a centered slip */
+            .modal,
+            #modalReceipt,
+            #modalFocusReceipt {
+                position: static !important;
+                display: block !important;
+                background: transparent !important;
+                background-color: transparent !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 auto !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                z-index: 1 !important;
+            }
+
+            .modal-dialog {
+                position: static !important;
+                transform: none !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                max-width: 360px !important;
+                width: 100% !important;
+                box-shadow: none !important;
+            }
+
+            .modal-content {
+                border: 1px dashed #94A3B8 !important;
+                box-shadow: none !important;
+                border-radius: 12px !important;
+                background: #FFFFFF !important;
+                padding: 4px !important;
+                margin: 0 auto !important;
+            }
+
+            #printableReceipt,
+            #printableFocusReceipt {
+                display: block !important;
+                padding: 16px 20px !important;
+                margin: 0 auto !important;
+                width: 100% !important;
+                max-width: 360px !important;
+                color: #0F172A !important;
+                background: #FFFFFF !important;
+            }
+
+            #printableReceipt .bg-light,
+            #printableFocusReceipt .bg-light {
+                background-color: #F8FAFC !important;
+                border: 1px dashed #CBD5E1 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            @page {
+                margin: 8mm;
+                size: auto;
+            }
+        }
     </style>
 
     @stack('styles')
 </head>
 <body>
 
-    <div id="topProgressBar"></div>
+    <div id="topProgressBar" class="no-print"></div>
 
     <div class="app-shell">
 
         <!-- ===== Sidebar ===== -->
-        <aside class="sidebar" id="appSidebar">
+        <aside class="sidebar no-print" id="appSidebar">
             <a href="/" class="sidebar-brand">
                 <div class="brand-icon">
                     <img src="{{ asset('images/logo-smkn1bantul.png') }}" alt="Logo SMKN 1 Bantul">
@@ -1014,7 +1115,7 @@
 
                         <span class="sidebar-section-label">Laporan & Audit</span>
                         <a href="{{ route('admin.withdrawal-requests.index') }}" class="nav-link {{ request()->routeIs('admin.withdrawal-requests.*') ? 'active' : '' }}">
-                            <i class="bi bi-calendar-check-fill"></i> Janjian Penarikan (> 1 Jt)
+                            <i class="bi bi-calendar-check-fill"></i> Pengajuan Penarikan
                         </a>
                         <a href="{{ route('admin.approval.index') }}" class="nav-link {{ request()->routeIs('admin.approval.*') || request()->routeIs('admin.shifts.*') ? 'active' : '' }}">
                             <i class="bi bi-shield-check"></i> Approval Kas Teller
@@ -1051,7 +1152,7 @@
                             <i class="bi bi-arrow-up-circle-fill"></i> Penarikan Tunai
                         </a>
                         <a href="{{ route('teller.withdrawal-requests.index') }}" class="nav-link {{ request()->routeIs('teller.withdrawal-requests.*') ? 'active' : '' }}">
-                            <i class="bi bi-calendar-check-fill"></i> Janjian Penarikan (> 1 Jt)
+                            <i class="bi bi-calendar-check-fill"></i> Pengajuan Penarikan
                         </a>
 
                         <span class="sidebar-section-label">Laporan</span>
@@ -1074,13 +1175,13 @@
             </div>
         </aside>
 
-        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        <div class="sidebar-backdrop no-print" id="sidebarBackdrop"></div>
 
         <!-- ===== Main Wrapper ===== -->
         <div class="main-wrapper">
 
             <!-- ===== Topbar ===== -->
-            <header class="topbar">
+            <header class="topbar no-print">
                 <div class="d-flex align-items-center gap-3">
                     <button class="topbar-icon-btn sidebar-toggle-btn" id="sidebarToggle" type="button">
                         <i class="bi bi-list"></i>
@@ -1239,7 +1340,7 @@
 
             <!-- ===== Floating Action Toast Notification (Global) ===== -->
             @if(session('success') || session('error') || $errors->any())
-                <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999; max-width: 420px; width: 100%; pointer-events: none;">
+                <div class="position-fixed top-0 end-0 p-3 no-print" style="z-index: 9999; max-width: 420px; width: 100%; pointer-events: none;">
                     @if(session('success'))
                         <div class="toast show align-items-center border-0 shadow-lg mb-2 w-100" role="alert" aria-live="assertive" aria-atomic="true" style="border-radius: 16px; background: #ECFDF5; color: #065F46; border-left: 5px solid #10B981 !important; pointer-events: auto;">
                             <div class="d-flex p-3 align-items-center">
@@ -1271,7 +1372,7 @@
             <!-- ===== Content ===== -->
             <main class="content-area">
                 @if (session('success') && !request()->routeIs('profile.*') && !request()->routeIs('teller.activations.*'))
-                    <div class="alert alert-success alert-dismissible fade show shadow-sm d-flex align-items-center gap-2" role="alert" style="border-radius: 12px; border: 1px solid #A7F3D0; background-color: #D1FAE5; color: #065F46;">
+                    <div class="alert alert-success alert-dismissible fade show shadow-sm d-flex align-items-center gap-2 no-print" role="alert" style="border-radius: 12px; border: 1px solid #A7F3D0; background-color: #D1FAE5; color: #065F46;">
                         <i class="bi bi-check-circle-fill fs-5 text-success"></i>
                         <div>{{ session('success') }}</div>
                         <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -1279,7 +1380,7 @@
                 @endif
 
                 @if (session('error') && !request()->routeIs('profile.*') && !request()->routeIs('teller.activations.*'))
-                    <div class="alert alert-danger alert-dismissible fade show shadow-sm d-flex align-items-center gap-2" role="alert" style="border-radius: 12px; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
+                    <div class="alert alert-danger alert-dismissible fade show shadow-sm d-flex align-items-center gap-2 no-print" role="alert" style="border-radius: 12px; border: 1px solid #FECACA; background-color: #FEE2E2; color: #991B1B;">
                         <i class="bi bi-exclamation-triangle-fill fs-5 text-danger"></i>
                         <div>{{ session('error') }}</div>
                         <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -1375,48 +1476,64 @@
         function moveSidebarGlider(targetLink, animate = true) {
             if (!sidebarNav || !sidebarGlider || !targetLink) return;
 
-            if (!animate) {
-                sidebarGlider.style.transition = 'none';
-            } else {
-                sidebarGlider.style.transition = 'transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
-            }
-
             const topPos = targetLink.offsetTop;
             const itemHeight = Math.max(46, targetLink.offsetHeight);
 
-            sidebarGlider.style.height = itemHeight + 'px';
-            sidebarGlider.style.transform = `translateY(${topPos}px)`;
-            sidebarGlider.style.opacity = '1';
-
             if (!animate) {
+                sidebarGlider.style.transition = 'none';
+                sidebarGlider.style.height = itemHeight + 'px';
+                sidebarGlider.style.transform = `translateY(${topPos}px)`;
+                sidebarGlider.style.opacity = '1';
                 void sidebarGlider.offsetWidth;
-                sidebarGlider.style.transition = 'transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), height 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease';
+                sidebarGlider.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+            } else {
+                sidebarGlider.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+                sidebarGlider.style.height = itemHeight + 'px';
+                sidebarGlider.style.transform = `translateY(${topPos}px)`;
+                sidebarGlider.style.opacity = '1';
             }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             if (!sidebarNav || !sidebarGlider) return;
 
-            // Bersihkan sisa koordinat lama agar tidak terjadi pengulangan animasi lompat balik
-            sessionStorage.removeItem('bankmini_glider_top');
-
-            // Posisikan glider tepat di opsi aktif halaman saat ini secara instan (tanpa delay / tanpa lompat)
             const activeLink = sidebarNav.querySelector('.nav-link.active');
             if (activeLink) {
-                moveSidebarGlider(activeLink, false);
+                const targetTop = activeLink.offsetTop;
+                const lastTop = sessionStorage.getItem('bankmini_active_glider_top');
+
+                // Jika perpindahan antar-halaman dari posisi sebelumnya, luncurkan luncuran putih mulus tanpa blink
+                if (lastTop !== null && Math.abs(parseInt(lastTop) - targetTop) > 2) {
+                    sidebarGlider.style.transition = 'none';
+                    sidebarGlider.style.height = '46px';
+                    sidebarGlider.style.transform = `translateY(${lastTop}px)`;
+                    sidebarGlider.style.opacity = '1';
+                    void sidebarGlider.offsetWidth;
+
+                    requestAnimationFrame(() => {
+                        moveSidebarGlider(activeLink, true);
+                    });
+                } else {
+                    moveSidebarGlider(activeLink, false);
+                }
+
+                sessionStorage.setItem('bankmini_active_glider_top', targetTop);
+
+                // Pastikan menu yang aktif di sidebar terlihat di viewport jika posisinya di bawah
                 const navRect = sidebarNav.getBoundingClientRect();
                 const linkRect = activeLink.getBoundingClientRect();
                 if (linkRect.bottom > navRect.bottom || linkRect.top < navRect.top) {
-                    activeLink.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+                    activeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
             }
 
-            // Saat klik item di sidebar, luncurkan putih glider secara mulus ke opsi yang diklik
+            // Saat klik item di sidebar, catat posisi dan mulai animasi luncuran secara instan
             const navLinks = sidebarNav.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     navLinks.forEach(l => l.classList.remove('active'));
                     this.classList.add('active');
+                    sessionStorage.setItem('bankmini_active_glider_top', this.offsetTop);
                     moveSidebarGlider(this, true);
                 });
             });

@@ -331,7 +331,7 @@
 
 @section('content')
 
-    <div class="form-stage">
+    <div class="form-stage no-print">
         <div class="transaction-card">
 
             <div class="transaction-icon-badge">
@@ -564,7 +564,7 @@
                     <hr style="border-top: 1px dashed #94A3B8;">
                     <small class="text-muted d-block text-center mb-3">Terima kasih telah rajin menabung untuk masa depan!</small>
 
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 no-print">
                         <button type="button" class="btn btn-secondary rounded-pill flex-fill" onclick="document.getElementById('modalReceipt').style.display='none'">Tutup</button>
                         <button type="button" class="btn btn-success rounded-pill flex-fill" onclick="window.print()" style="background: #0F766E;">
                             <i class="bi bi-printer me-1"></i> Cetak Struk

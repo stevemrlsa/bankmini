@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
-@section('title', 'Buat Janjian Penarikan Dana Besar — Bank Mini')
-@section('header_title', 'Janjian Penarikan Dana Besar')
-@section('page-title', 'Form Pengajuan Janjian Penarikan (> Rp 1.000.000)')
-@section('page-subtitle', 'Pendaftaran reservasi penarikan dana besar minimal H-1 sebelum pengambilan uang tunai')
+@section('title', 'Buat Pengajuan Penarikan — Bank Mini')
+@section('header_title', 'Pengajuan Penarikan')
+@section('page-title', 'Form Pengajuan Penarikan Dana Besar')
+@section('page-subtitle', 'Pendaftaran pengajuan penarikan dana besar minimal H-1 sebelum pengambilan uang tunai')
 
 @push('styles')
 <style>
@@ -41,7 +41,7 @@
 
     <div class="mb-3">
         <a href="{{ route($indexRoute) }}" class="btn btn-sm btn-link text-decoration-none text-muted p-0 fw-semibold">
-            <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Janjian Penarikan
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Pengajuan Penarikan
         </a>
     </div>
 
@@ -192,7 +192,7 @@
                             Batal
                         </a>
                         <button type="submit" class="btn btn-dark rounded-pill px-4 fw-bold shadow-sm" id="btnSubmitBooking" style="background: #111827;">
-                            <i class="bi bi-calendar-check-fill me-1"></i> Ajukan Janjian Penarikan
+                            <i class="bi bi-calendar-check-fill me-1"></i> Ajukan Penarikan
                         </button>
                     </div>
                 </form>

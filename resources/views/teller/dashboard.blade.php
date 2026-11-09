@@ -508,7 +508,7 @@
     <!-- ========================================================
          VIEW 1: DEFAULT TELLER DASHBOARD
          ======================================================== -->
-    <div id="dashboardDefaultView">
+    <div id="dashboardDefaultView" class="no-print">
         
         <!-- Banner Sapaan + Aksi Tambah Kas Laci (Rapi & Tidak Bertumpuk) -->
         <div class="greeting-banner d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -735,7 +735,7 @@
     <!-- ========================================================
          VIEW 2: TELLER FOCUS MODE STAGE (CENTERED IN VIEWPORT)
          ======================================================== -->
-    <div id="tellerFocusStage" class="d-none" style="width: 100%;">
+    <div id="tellerFocusStage" class="d-none no-print" style="width: 100%;">
 
         <!-- ----------------------------------------------------
              STAGE A: PROFILE CARD (TERPUSAT SETELAH SCAN QR)
@@ -1027,7 +1027,7 @@
     <div class="modal fade" id="modalFocusReceipt" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.25);">
-                <div class="modal-body p-4 text-center">
+                <div class="modal-body p-4 text-center" id="printableFocusReceipt">
                     <div class="mb-2"><i class="bi bi-check-circle-fill fs-1 text-success"></i></div>
                     <h5 class="fw-bold mb-0 text-dark">Transaksi Berhasil Diproses!</h5>
                     <small class="text-muted d-block mb-3">BANK MINI SMKN 1 BANTUL</small>
@@ -1072,7 +1072,7 @@
 
                     <hr style="border-top: 1px dashed #94A3B8;">
                     
-                    <div class="d-flex flex-column gap-2">
+                    <div class="d-flex flex-column gap-2 no-print">
                         <button type="button" class="btn btn-outline-secondary rounded-pill w-100" onclick="window.print()">
                             <i class="bi bi-printer me-1"></i> Cetak Struk
                         </button>

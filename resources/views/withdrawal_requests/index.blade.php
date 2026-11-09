@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
-@section('title', 'Janjian Penarikan Dana Besar — Bank Mini')
-@section('header_title', 'Janjian Penarikan Dana Besar')
-@section('page-title', 'Janjian Penarikan Dana Besar (> Rp 1.000.000)')
-@section('page-subtitle', 'Manajemen reservasi penarikan dana besar dengan otorisasi ganda Teller & Admin minimal H-1')
+@section('title', 'Pengajuan Penarikan — Bank Mini')
+@section('header_title', 'Pengajuan Penarikan')
+@section('page-title', 'Pengajuan Penarikan Dana Besar')
+@section('page-subtitle', 'Manajemen pengajuan penarikan dana besar dengan otorisasi ganda Teller & Admin minimal H-1')
 
 @push('styles')
 <style>
@@ -202,7 +202,7 @@
         </form>
 
         <a href="{{ route($createRoute) }}" class="btn-create-booking">
-            <i class="bi bi-calendar-plus-fill"></i> Buat Janjian Penarikan Baru
+            <i class="bi bi-calendar-plus-fill"></i> Buat Pengajuan Penarikan Baru
         </a>
     </div>
 
