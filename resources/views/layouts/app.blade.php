@@ -172,6 +172,7 @@
         /* ===== Sliding Curved Scoop Glider ===== */
         .sidebar-glider {
             position: absolute;
+            top: 0;
             left: 0;
             right: 0;
             height: 48px;
@@ -225,7 +226,7 @@
             height: 48px;
             min-height: 48px;
             flex-shrink: 0;
-            padding: 0 18px;
+            padding: 1px 18px 0 18px;
             margin-right: 0;
             border-top-left-radius: 25px;
             border-bottom-left-radius: 25px;
