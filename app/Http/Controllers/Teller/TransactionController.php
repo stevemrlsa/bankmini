@@ -115,7 +115,6 @@ class TransactionController extends Controller
                         'transaction_type' => 'Deposit',
                         'amount'           => $request->initial_deposit,
                         'status'           => 'Approved',
-                        'notes'            => 'Setoran awal pembukaan rekening baru.',
                     ]);
 
                     // 5. Catat Jurnal Akuntansi Double-Entry (Kas Debit, Tabungan Siswa Kredit)
@@ -406,7 +405,7 @@ class TransactionController extends Controller
 
         // 4. Block transaction if physical cash is insufficient
         if ($uangFisikDiLaci <= 0 || (float) $request->amount > $uangFisikDiLaci) {
-            $insufficientError = 'Penarikan ditolak! Saldo kas di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.';
+            $insufficientError = 'Penarikan ditolak! Uang kas fisik di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.';
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'success' => false,

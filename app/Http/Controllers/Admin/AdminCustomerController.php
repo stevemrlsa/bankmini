@@ -439,7 +439,6 @@ class AdminCustomerController extends Controller
                     'transaction_type' => 'Deposit',
                     'amount'           => $request->initial_deposit,
                     'status'           => 'Approved',
-                    'notes'            => 'Setoran awal pembukaan rekening baru.',
                 ]);
 
                 // 5. Catat Jurnal Akuntansi Double-Entry (Kas Debit, Tabungan Siswa Kredit)
