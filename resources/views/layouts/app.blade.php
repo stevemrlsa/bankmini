@@ -184,11 +184,10 @@
             border-bottom-right-radius: 0;
             z-index: 1;
             pointer-events: none;
-            opacity: 0;
+            opacity: 1;
             box-shadow: 6px 0 0 0 var(--bg-main);
-            transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-                        height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-                        opacity 0.2s ease;
+            transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
             will-change: transform;
         }
 
@@ -1161,6 +1160,23 @@
                         </a>
                     @endif
                 @endauth
+                <script>
+                    (function() {
+                        try {
+                            var nav = document.getElementById('sidebarNav');
+                            var g = document.getElementById('sidebarGlider');
+                            if (nav && g) {
+                                var a = nav.querySelector('.nav-link.active');
+                                if (a) {
+                                    g.style.transition = 'none';
+                                    g.style.transform = 'translateY(' + a.offsetTop + 'px)';
+                                    g.style.height = (a.offsetHeight || 46) + 'px';
+                                    g.style.opacity = '1';
+                                }
+                            }
+                        } catch(e) {}
+                    })();
+                </script>
             </nav>
 
             <div class="sidebar-footer">
@@ -1485,9 +1501,9 @@
                 sidebarGlider.style.transform = `translateY(${topPos}px)`;
                 sidebarGlider.style.opacity = '1';
                 void sidebarGlider.offsetWidth;
-                sidebarGlider.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+                sidebarGlider.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1)';
             } else {
-                sidebarGlider.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+                sidebarGlider.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1)';
                 sidebarGlider.style.height = itemHeight + 'px';
                 sidebarGlider.style.transform = `translateY(${topPos}px)`;
                 sidebarGlider.style.opacity = '1';
@@ -1499,25 +1515,8 @@
 
             const activeLink = sidebarNav.querySelector('.nav-link.active');
             if (activeLink) {
-                const targetTop = activeLink.offsetTop;
-                const lastTop = sessionStorage.getItem('bankmini_active_glider_top');
-
-                // Jika perpindahan antar-halaman dari posisi sebelumnya, luncurkan luncuran putih mulus tanpa blink
-                if (lastTop !== null && Math.abs(parseInt(lastTop) - targetTop) > 2) {
-                    sidebarGlider.style.transition = 'none';
-                    sidebarGlider.style.height = '46px';
-                    sidebarGlider.style.transform = `translateY(${lastTop}px)`;
-                    sidebarGlider.style.opacity = '1';
-                    void sidebarGlider.offsetWidth;
-
-                    requestAnimationFrame(() => {
-                        moveSidebarGlider(activeLink, true);
-                    });
-                } else {
-                    moveSidebarGlider(activeLink, false);
-                }
-
-                sessionStorage.setItem('bankmini_active_glider_top', targetTop);
+                moveSidebarGlider(activeLink, false);
+                sessionStorage.setItem('bankmini_active_glider_top', activeLink.offsetTop);
 
                 // Pastikan menu yang aktif di sidebar terlihat di viewport jika posisinya di bawah
                 const navRect = sidebarNav.getBoundingClientRect();
@@ -1527,14 +1526,39 @@
                 }
             }
 
-            // Saat klik item di sidebar, catat posisi dan mulai animasi luncuran secara instan
+            // Saat klik item di sidebar, jalankan luncuran mulus terlebih dahulu sebelum navigasi
             const navLinks = sidebarNav.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
-                link.addEventListener('click', function() {
+                link.addEventListener('click', function(e) {
+                    if (this.classList.contains('active')) return;
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || this.target === '_blank') return;
+
+                    const href = this.getAttribute('href');
+                    if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+                    e.preventDefault();
+
                     navLinks.forEach(l => l.classList.remove('active'));
                     this.classList.add('active');
+
+                    // Luncurkan putih glider secara mulus ke item tujuan
                     sessionStorage.setItem('bankmini_active_glider_top', this.offsetTop);
                     moveSidebarGlider(this, true);
+
+                    if (progressBar) {
+                        progressBar.style.opacity = '1';
+                        progressBar.style.width = '70%';
+                    }
+                    const content = document.querySelector('.content-area');
+                    if (content) {
+                        content.style.transition = 'opacity 0.15s ease';
+                        content.style.opacity = '0.45';
+                    }
+
+                    // Navigasi halaman tepat setelah luncuran mencapai posisi tujuan (160ms)
+                    setTimeout(() => {
+                        window.location.href = href;
+                    }, 160);
                 });
             });
 
