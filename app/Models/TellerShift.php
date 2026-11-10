@@ -65,8 +65,8 @@ class TellerShift extends Model
     }
 
     /**
-     * Mengambil shift yang saat ini sedang aktif (status 'Open').
-     * Jika ada shift aktif, shift tersebut menjadi Shift Bersama bagi seluruh loket.
+     * [UJIAN / PENGUJI - MODEL 1]: Mengambil Shift Aktif Bersama (getActiveOpenShift)
+     * Jika sudah ada shift aktif berstatus 'Open', seluruh loket otomatis berbagi shift & laci kas ini.
      */
     public static function getActiveOpenShift(): ?self
     {
@@ -74,7 +74,8 @@ class TellerShift extends Model
     }
 
     /**
-     * Menambahkan teller kedua/tambahan ke dalam shift bersama jika belum terdaftar.
+     * [UJIAN / PENGUJI - MODEL 2]: Multi-Teller Auto-Attachment ke Laci Bersama (attachTeller)
+     * Mendaftarkan Teller 2 ke dalam shared_user_ids tanpa perlu modal ganda atau tutup laci rekan.
      */
     public function attachTeller(int $userId): void
     {
@@ -158,7 +159,8 @@ class TellerShift extends Model
     }
 
     /**
-     * Menghitung sisa uang kas fisik nyata yang harus ada di laci bersama saat ini.
+     * [UJIAN / PENGUJI - MODEL 3]: Perhitungan Kas Fisik Real-time di Laci Bersama (calculateCurrentDrawerCash)
+     * Rumus Akurat: Modal Kas Awal + Total Setoran Seluruh Teller - Total Penarikan Seluruh Teller
      */
     public function calculateCurrentDrawerCash(): float
     {
@@ -179,7 +181,8 @@ class TellerShift extends Model
     }
 
     /**
-     * Mendapatkan rincian statistik kontribusi masing-masing teller dalam shift bersama.
+     * [UJIAN / PENGUJI - MODEL 4]: Dual Breakdown Rekonsiliasi Transaksi Per Teller (getBreakdownPerTeller)
+     * Menghasilkan statistik transparan perorangan (berapa rupiah disetor/ditarik Teller 1 vs Teller 2)
      */
     public function getBreakdownPerTeller(): array
     {

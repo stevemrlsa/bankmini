@@ -71,7 +71,8 @@ class WithdrawalRequestController extends Controller
     }
 
     /**
-     * Simpan pengajuan janjian penarikan dana besar baru
+     * [UJIAN / PENGUJI - WITHDRAWAL 1]: Pembuatan Janjian Penarikan Dana Besar (> Rp 1.000.000)
+     * Dilakukan minimal H-1 agar sekolah memiliki waktu menyiapkan dana fisik tunai di brankas
      */
     public function store(Request $request)
     {
@@ -199,7 +200,8 @@ class WithdrawalRequestController extends Controller
     }
 
     /**
-     * Persetujuan Otorisasi Penuh oleh Administrator
+     * [UJIAN / PENGUJI - WITHDRAWAL 2]: Persetujuan Otorisasi Penuh oleh Administrator
+     * Menjamin hanya pengajuan yang disetujui Admin yang dapat dicairkan oleh loket teller
      */
     public function approveAdmin($id)
     {

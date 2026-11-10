@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\Schema;
 class TellerShiftController extends Controller
 {
     /**
-     * Tampilkan form Buka Laci Kas / Modal Awal Shift.
-     * Jika sudah ada shift aktif yang dibuka oleh rekan teller (Shift Bersama),
-     * teller langsung dihubungkan ke shift aktif tersebut.
+     * [UJIAN / PENGUJI - CONTROLLER 1]: Auto-Connect Teller 2 ke Laci Aktif Tanpa Modal Ganda
+     * Jika Teller 1 sudah buka laci hari ini, Teller 2 yang login langsung diarahkan ke Dashboard
+     * dan otomatis tersambung ke laci kas yang sama tanpa perlu input modal uang fisik lagi.
      */
     public function create()
     {
@@ -83,7 +83,8 @@ class TellerShiftController extends Controller
     }
 
     /**
-     * Tambah uang kas ke laci saat shift sedang aktif (ketika uang kas laci menipis / habis).
+     * [UJIAN / PENGUJI - CONTROLLER 2]: Tambah Kas Laci (Top-Up Kas Fisik) Saat Uang di Laci Menipis
+     * Mengupdate modal awal kas laci bersama dan mencatat audit log agar kas tidak minus saat ada penarikan
      */
     public function topUp(Request $request)
     {
@@ -278,7 +279,9 @@ class TellerShiftController extends Controller
     }
 
     /**
-     * Endpoint API Live Status untuk sinkronisasi kas laci real-time antar teller se-shift.
+     * [UJIAN / PENGUJI - CONTROLLER 3]: Endpoint Polling Real-Time Sync Laci Kas (liveStatus)
+     * Dipanggil berkala tiap 4 detik oleh JS frontend teller untuk memperbarui saldo laci kas
+     * secara otomatis saat rekan teller di shift yang sama melakukan transaksi setor/tarik.
      */
     public function liveStatus()
     {

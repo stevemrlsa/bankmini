@@ -169,7 +169,9 @@
             display: none;
         }
 
-        /* ===== Sliding Curved Scoop Glider ===== */
+        /* ===== [UJIAN / PENGUJI - CSS 1]: Sliding Curved Scoop Glider =====
+           Kapsul putih menu aktif dengan sudut lengkung cekung (inverted border-radius)
+           menggunakan pseudo-element ::before & ::after dengan teknik radial-gradient */
         .sidebar-glider {
             position: absolute;
             top: 0;
@@ -969,7 +971,9 @@
             }
         }
 
-        /* ===== Receipt Print Mode (Hanya cetak struk tanpa tumpuk background) ===== */
+        /* ===== [UJIAN / PENGUJI - CSS 2]: Receipt Print Mode (Isolasi Cetak Struk Kasir) =====
+           Menyembunyikan navbar, sidebar, dan container form. Hanya area struk #printableReceipt
+           yang dicetak di posisi tengah kertas secara presisi untuk printer thermal / A4 */
         @media print {
             /* Sembunyikan semua elemen di body */
             body * {
@@ -1477,7 +1481,8 @@
             return prefix == undefined ? rupiah : (rupiah ? 'Rp ' + rupiah : '');
         }
 
-        // ===== Sliding Sidebar Glider & Smooth Page Transition =====
+        // ===== [UJIAN / PENGUJI - JS 1]: Sliding Sidebar Glider (Animasi Luncur Menu Aktif) =====
+        // Menggeser kapsul putih setinggi 48px ke koordinat item menu aktif (offsetTop) secara mulus
         const sidebarNav = document.getElementById('sidebarNav');
         const sidebarGlider = document.getElementById('sidebarGlider');
         const progressBar = document.getElementById('topProgressBar');

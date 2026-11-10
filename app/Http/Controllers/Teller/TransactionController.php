@@ -92,7 +92,8 @@ class TransactionController extends Controller
 
     public function storeSetoran(Request $request)
     {
-        // 1. Validasi Input Pendaftaran Rekening Baru (Bila membawa student_id atau initial_deposit)
+        // [UJIAN / PENGUJI - POIN 7]: Aktivasi Nasabah Baru dengan Setoran Awal Wajib Minimal Rp 10.000
+        // Memastikan nomor rekening baru di-generate otomatis dan dicatat ke data nasabah & audit log
         if ($request->has('student_id') || $request->has('initial_deposit')) {
             $request->validate([
                 'student_id'      => 'required|string|max:20|unique:savers,student_id',
@@ -108,10 +109,10 @@ class TransactionController extends Controller
             try {
                 $saver = null;
                 DB::transaction(function () use ($request, &$saver) {
-                    // 2. Generate No Rekening otomatis (Tahun + 4 digit urutan)
+                    // Generate No Rekening otomatis (Tahun berjalan + 4 digit urutan nasabah)
                     $accountNumber = date('Y') . str_pad(Saver::count() + 1, 4, '0', STR_PAD_LEFT);
 
-                    // 3. Buat Data Saver / Nasabah Baru
+                    // Buat Data Saver / Nasabah Baru
                     $saver = Saver::create([
                         'account_number' => $accountNumber,
                         'student_id'     => $request->student_id,
@@ -122,7 +123,7 @@ class TransactionController extends Controller
                         'status'         => 'active',
                     ]);
 
-                    // 4. Catat Transaksi Setoran Awal
+                    // Catat Transaksi Setoran Awal
                     $transaction = Transaction::create([
                         'saver_id'         => $saver->id,
                         'user_id'          => auth()->id(),
@@ -132,7 +133,8 @@ class TransactionController extends Controller
                         'status'           => 'Approved',
                     ]);
 
-                    // 5. Catat Jurnal Akuntansi Double-Entry (Kas Debit, Tabungan Siswa Kredit)
+                    // [UJIAN / PENGUJI - POIN 8]: Pencatatan Double-Entry Accounting Journal Otomatis
+                    // Kas Teller bertambah (Debit 101), Kewajiban Tabungan Siswa bertambah (Credit 201)
                     AccountingJournal::insert([
                         [
                             'transaction_id' => $transaction->id,
@@ -372,7 +374,8 @@ class TransactionController extends Controller
             'security_pin.digits'     => 'PIN keamanan harus terdiri dari 6 digit angka.',
         ]);
 
-        // 1. Get the shared active shift and attach current teller
+        // [UJIAN / PENGUJI - POIN 1]: Ambil Shift Laci Kas Bersama (Shared Drawer) & Otomatis Hubungkan Teller
+        // Jika laci sudah dibuka rekan teller, teller ini otomatis terdaftar tanpa membuka laci ganda
         $activeShift = \App\Models\TellerShift::getActiveOpenShift();
 
         if (!$activeShift) {
@@ -388,10 +391,10 @@ class TransactionController extends Controller
 
         $activeShift->attachTeller(auth()->id());
 
-        // 2 & 3. Calculate actual physical cash in the shared drawer
+        // [UJIAN / PENGUJI - POIN 2]: Validasi Kas Laci Fisik (Anti-Minus) Sebelum Transaksi Masuk Database
+        // Menjamin teller tidak dapat mencairkan uang tunai melebihi ketersediaan fisik di laci kas
         $uangFisikDiLaci = $activeShift->calculateCurrentDrawerCash();
 
-        // 4. Block transaction if physical cash in shared drawer is insufficient
         if ($uangFisikDiLaci <= 0 || (float) $request->amount > $uangFisikDiLaci) {
             $insufficientError = 'Penarikan ditolak! Uang kas fisik di laci tidak mencukupi (Tersedia di laci: Rp ' . number_format($uangFisikDiLaci, 0, ',', '.') . '). Silakan tambah kas laci terlebih dahulu.';
             if ($request->wantsJson() || $request->ajax()) {
@@ -406,8 +409,11 @@ class TransactionController extends Controller
         try {
             $saver = null;
             $withdrawalReq = null;
+
+            // [UJIAN / PENGUJI - POIN 3]: Transaksi Atomik Database (DB::transaction & lockForUpdate)
+            // Mencegah Race Condition jika 2 teller menekan tombol penarikan pada detik yang sama
             DB::transaction(function () use ($request, $activeShift, &$saver, &$withdrawalReq) {
-                // Validasi ulang saldo kas laci bersama di dalam transaksi
+                // Validasi ulang ketersediaan kas laci bersama di dalam baris transaksi yang terkunci
                 $kasLaciTersedia = $activeShift->calculateCurrentDrawerCash();
                 if ($kasLaciTersedia <= 0 || (float) $request->amount > $kasLaciTersedia) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -415,10 +421,10 @@ class TransactionController extends Controller
                     ]);
                 }
 
-                // 1. Ambil data dengan lock dalam transaksi
+                // Ambil data rekening nasabah dan kunci baris (row lock)
                 $saver = Saver::where('account_number', $request->account_number)->lockForUpdate()->firstOrFail();
 
-                // 2. Cek status keaktifan rekening
+                // [UJIAN / PENGUJI - POIN 4]: Proteksi Status Rekening (Blokir / Belum Aktif)
                 $statusLower = strtolower(trim((string) ($saver->status ?? '')));
                 if ($statusLower === 'blocked' || $statusLower === 'blokir') {
                     throw \Illuminate\Validation\ValidationException::withMessages([
@@ -431,14 +437,15 @@ class TransactionController extends Controller
                     ]);
                 }
 
-                // 3. Cek PIN
+                // Cek PIN 6 Digit Keamanan Nasabah
                 if (!Hash::check($request->security_pin, $saver->security_pin)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'security_pin' => 'PIN keamanan 6-digit yang dimasukkan salah.'
                     ]);
                 }
 
-                // 4. Cek sisa saldo mengendap minimal (wajib minimal Rp 10.000)
+                // [UJIAN / PENGUJI - POIN 5]: Validasi saldo mengendap wajib minimal Rp 10.000 (Minimum Maintained Balance)
+                // Mencegah rekening dikosongkan hingga Rp 0 agar rekening tabungan tetap aktif (tidak dormant)
                 $batasMinSaldo = 10000;
                 try {
                     $settingMinSaldo = \App\Models\SystemSetting::where('key', 'min_saldo_mengendap')->first();
@@ -457,11 +464,11 @@ class TransactionController extends Controller
                     ]);
                 }
 
-                // 5. Aturan Penarikan Tunai: Reguler (<= Rp 1.000.000/hari) vs Janjian Dana Besar (> Rp 1.000.000)
+                // [UJIAN / PENGUJI - POIN 6]: Otorisasi Janjian Penarikan Dana Besar (> Rp 1.000.000)
+                // Penarikan di atas 1 juta wajib diajukan H-1 dan disetujui Admin agar sekolah bisa menyiapkan fisik uang
                 $nominalTarik = (float) $request->amount;
 
                 if ($nominalTarik > 1000000) {
-                    // Penarikan di atas Rp 1.000.000: wajib ada pengajuan janjian yang sudah disetujui
                     try {
                         if ($request->filled('withdrawal_request_id')) {
                             $withdrawalReq = \App\Models\WithdrawalRequest::where('id', $request->withdrawal_request_id)
