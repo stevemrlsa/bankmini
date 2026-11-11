@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Teller\TransactionController;
 use App\Http\Controllers\Teller\DailyReportController;
+use App\Http\Controllers\Teller\MutationReportController;
 use App\Http\Controllers\Teller\TellerActivationController;
 use App\Http\Controllers\Admin\ApprovalController as AdminApprovalController;
 use App\Http\Controllers\Admin\MonthlyReportController;
@@ -162,6 +163,7 @@ Route::prefix('admin')->middleware(['auth', 'role:Administrator,Admin'])->group(
     Route::post('/customers/bulk-promote', [AdminCustomerController::class, 'bulkPromote'])->name('admin.savers.bulk-promote');
     Route::patch('/customers/{id}/deactivate', [AdminCustomerController::class, 'deactivateAccount'])->name('admin.savers.deactivate');
     Route::get('/customers/{id}/history', [AdminCustomerController::class, 'history'])->name('admin.savers.history');
+    Route::get('/customers/{id}/history/pdf', [AdminCustomerController::class, 'exportHistoryPdf'])->name('admin.savers.history.pdf');
     Route::put('/savers/{id}', [AdminCustomerController::class, 'update'])->name('admin.savers.update');
     Route::post('/savers/{id}/reset-pin', [AdminCustomerController::class, 'resetPin'])->name('admin.savers.reset-pin');
     Route::post('/savers/{id}/reset-password', [AdminCustomerController::class, 'resetPassword'])->name('admin.savers.reset-password');
@@ -235,6 +237,10 @@ Route::prefix('teller')->middleware(['auth', 'role:Teller'])->group(function () 
     Route::post('/shift', [TellerShiftController::class, 'store'])->name('teller.shift.store');
     Route::post('/shift/top-up', [TellerShiftController::class, 'topUp'])->name('teller.shift.topup');
     Route::get('/shift/live-status', [TellerShiftController::class, 'liveStatus'])->name('teller.shift.live-status');
+
+    // Laporan & Cetak PDF Mutasi Nasabah Teller (Hari Ini, Kemarin, Bulan Ini — tidak terkunci shift aktif)
+    Route::get('/reports/mutations', [MutationReportController::class, 'index'])->name('teller.reports.mutations');
+    Route::get('/reports/mutations/pdf', [MutationReportController::class, 'exportPdf'])->name('teller.reports.mutations.pdf');
 
     // Rute Operasional & Transaksi (Wajib memiliki Shift / Modal Awal yang Aktif)
     Route::middleware('teller.shift')->group(function () {

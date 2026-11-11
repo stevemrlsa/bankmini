@@ -1148,6 +1148,9 @@
                         </a>
 
                         <span class="sidebar-section-label">Laporan</span>
+                        <a href="{{ route('teller.reports.mutations') }}" class="nav-link {{ request()->routeIs('teller.reports.mutations*') ? 'active' : '' }}">
+                            <i class="bi bi-file-earmark-pdf-fill"></i> Laporan Mutasi
+                        </a>
                         <a href="{{ route('teller.report.closing') }}" class="nav-link {{ request()->routeIs('teller.report.*') ? 'active' : '' }}">
                             <i class="bi bi-journal-check"></i> Penutupan Kas
                         </a>

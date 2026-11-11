@@ -235,7 +235,7 @@
                         <th>Kelas</th>
                         <th>Status</th>
                         <th>Saldo Tabungan</th>
-                        <th style="width: 210px;" class="text-center">Aksi</th>
+                        <th style="width: 245px;" class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -277,6 +277,11 @@
                                 <!-- Lihat Mutasi Transaksi (Eye Icon) -->
                                 <a href="{{ route('admin.savers.history', $item->id) }}" class="action-btn text-info" title="Lihat Mutasi Transaksi">
                                     <i class="bi bi-eye-fill"></i>
+                                </a>
+
+                                <!-- Cetak PDF Mutasi Nasabah -->
+                                <a href="{{ route('admin.savers.history.pdf', $item->id) }}" target="_blank" class="action-btn text-danger" title="Cetak PDF Mutasi Nasabah" style="border-color: rgba(220, 38, 38, 0.25);">
+                                    <i class="bi bi-file-earmark-pdf-fill"></i>
                                 </a>
 
                                 <!-- Edit Data Siswa (Pencil Icon) -->

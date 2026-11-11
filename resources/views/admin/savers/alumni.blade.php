@@ -130,7 +130,7 @@
                     <th>Nama Siswa</th>
                     <th>Status / Angkatan Lulus</th>
                     <th>Saldo Tersimpan</th>
-                    <th class="text-center" style="width: 240px;">Aksi</th>
+                    <th class="text-center" style="width: 290px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -157,6 +157,9 @@
                             <div class="d-inline-flex gap-2 align-items-center">
                                 <a href="{{ route('admin.savers.history', $item->id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" title="Lihat Riwayat Transaksi">
                                     <i class="bi bi-clock-history me-1"></i> Riwayat
+                                </a>
+                                <a href="{{ route('admin.savers.history.pdf', $item->id) }}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold" title="Cetak PDF Mutasi Nasabah">
+                                    <i class="bi bi-file-earmark-pdf-fill me-1"></i> PDF
                                 </a>
                                 <button type="button" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold" data-bs-toggle="modal" data-bs-target="#modalReactivate{{ $item->id }}">
                                     <i class="bi bi-arrow-counterclockwise me-1"></i> Aktifkan Lagi

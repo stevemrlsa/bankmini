@@ -644,9 +644,14 @@
                     <p class="panel-title">Transaksi Loket Terakhir</p>
                     <p class="panel-subtitle">Aktivitas transaksi yang diproses loket ini</p>
                 </div>
-                <a href="{{ route('teller.report.closing') }}" class="text-decoration-none fw-semibold" style="font-size:0.82rem; color:#3B5BA5;">
-                    <i class="bi bi-file-earmark-text me-1"></i> Tutup Kas Harian
-                </a>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <a href="{{ route('teller.reports.mutations') }}" class="text-decoration-none fw-semibold" style="font-size:0.82rem; color:#DC2626;">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> Laporan Mutasi PDF
+                    </a>
+                    <a href="{{ route('teller.report.closing') }}" class="text-decoration-none fw-semibold" style="font-size:0.82rem; color:#3B5BA5;">
+                        <i class="bi bi-file-earmark-text me-1"></i> Tutup Kas Harian
+                    </a>
+                </div>
             </div>
 
             <div class="activity-list">

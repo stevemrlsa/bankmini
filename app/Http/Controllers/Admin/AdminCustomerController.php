@@ -12,7 +12,13 @@ use App\Models\Member;
 use App\Models\Saver;
 use App\Models\Transaction;
 use App\Models\AccountingJournal;
+use App\Models\AuditLog;
+use App\Services\MutationReportService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -506,14 +512,106 @@ class AdminCustomerController extends Controller
     /**
      * Display mutation/transaction history for a specific customer.
      */
-    public function history($id)
+    public function history(Request $request, $id)
     {
-        $saver = Saver::findOrFail($id);
-        $transactions = Transaction::where('saver_id', $id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $reportService = app(MutationReportService::class);
+        $context = $this->resolveCustomerMutationContext($request, $id, $reportService);
+        $tsExpr = $reportService->effectiveTimestampExpression();
 
-        return view('admin.savers.history', compact('saver', 'transactions'));
+        $transactions = (clone $context['query'])
+            ->orderByRaw("{$tsExpr} desc, id desc")
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.savers.history', array_merge($context, [
+            'transactions' => $transactions,
+        ]));
+    }
+
+    /**
+     * Export per-customer mutation history (Rekening Koran) to official PDF.
+     */
+    public function exportHistoryPdf(Request $request, $id)
+    {
+        $reportService = app(MutationReportService::class);
+        $context = $this->resolveCustomerMutationContext($request, $id, $reportService);
+        $tsExpr = $reportService->effectiveTimestampExpression();
+
+        $transactions = (clone $context['query'])
+            ->orderByRaw("{$tsExpr} asc, id asc")
+            ->get();
+
+        $saver = $context['saver'];
+        $showRunningBalance = ($context['normalizedType'] === 'all');
+        $openingBalance = 0.0;
+        $closingBalance = (float) ($saver->saldo ?? 0);
+
+        if ($showRunningBalance) {
+            $openingBalance = $reportService->calculateOpeningBalanceForCustomer(
+                $saver->id,
+                (float) ($saver->saldo ?? 0),
+                $context['periodData']['start_at']
+            );
+            $ledger = $reportService->attachRunningBalance($transactions, $openingBalance);
+            $transactions = $ledger['transactions'];
+            $closingBalance = $ledger['closing_balance'];
+        }
+
+        $printedAt = Carbon::now('Asia/Jakarta');
+        $admin = Auth::user();
+        $adminName = $admin ? ($admin->officer_name ?: $admin->username) : 'Administrator';
+
+        AuditLog::record(
+            'EXPORT_PDF',
+            'Mutasi Per Nasabah',
+            "Mencetak PDF Rekening Koran nasabah {$saver->student_name} (Rek: " . ($saver->account_number ?: '-') . ", Periode: {$context['periodData']['label']}, {$context['summary']['total_count']} transaksi).",
+            $admin?->id,
+            $adminName
+        );
+
+        $pdf = Pdf::loadView('admin.savers.history_pdf', [
+            'saver'              => $saver,
+            'periodData'         => $context['periodData'],
+            'normalizedType'     => $context['normalizedType'],
+            'typeLabel'          => $context['typeLabel'],
+            'summary'            => $context['summary'],
+            'transactions'       => $transactions,
+            'showRunningBalance' => $showRunningBalance,
+            'openingBalance'     => $openingBalance,
+            'closingBalance'     => $closingBalance,
+            'printedAt'          => $printedAt,
+            'adminName'          => $adminName,
+        ])->setPaper('a4', 'landscape');
+
+        $safeAccount = Str::slug($saver->account_number ?: $saver->student_id ?: 'nasabah', '_');
+        $safeName = Str::slug($saver->student_name ?: 'siswa', '_');
+        $filename = "Mutasi_Nasabah_{$safeAccount}_{$safeName}.pdf";
+
+        if ($request->query('mode') === 'download' || $request->boolean('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
+    /**
+     * Resolve customer profile, filter parameters, query, and aggregate summary centrally.
+     */
+    private function resolveCustomerMutationContext(Request $request, $id, MutationReportService $reportService): array
+    {
+        $saver = Saver::withTrashed()->findOrFail($id);
+        $periodData = $reportService->resolveCustomerPeriod(
+            $request->query('period', 'all'),
+            $request->query('start_date'),
+            $request->query('end_date')
+        );
+        $normalizedType = $reportService->normalizeType($request->query('type', 'all'));
+        $typeLabel = $reportService->getTypeLabel($normalizedType);
+
+        $query = $reportService->buildCustomerMutationQuery($saver->id, $periodData, $normalizedType);
+        $summary = $reportService->summarizeQuery($query);
+
+        return compact('saver', 'periodData', 'normalizedType', 'typeLabel', 'query', 'summary');
     }
 
     /**
