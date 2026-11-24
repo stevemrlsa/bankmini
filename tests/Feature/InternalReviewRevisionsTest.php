@@ -39,9 +39,8 @@ class InternalReviewRevisionsTest extends TestCase
 
         $response = $this->actingAs($this->teller)->get(route('teller.dashboard'));
         $response->assertStatus(200);
-        $response->assertSee('transform: translate(-50%, -50%) !important;', false);
-        $response->assertSee('width: 440px !important;', false);
-        $response->assertSee('max-width: 440px;', false);
+        $response->assertSee('margin: 20mm auto 0 auto !important;', false);
+        $response->assertSee('width: 480px !important;', false);
     }
 
     public function test_revision_2_cash_denomination_breakdown_calculates_150k_and_renders_in_admin_approval_and_pdf(): void
@@ -216,5 +215,24 @@ class InternalReviewRevisionsTest extends TestCase
         $staffSaver->refresh();
         $this->assertEquals('Staf TU', $staffSaver->grade_class);
         $this->assertEquals('active', $staffSaver->status);
+    }
+
+    public function test_logout_route_supports_both_get_and_post_without_method_not_allowed_error(): void
+    {
+        // 1. GET /logout saat user terautentikasi -> logout, redirect ke /login dengan pesan sukses
+        $resGetAuth = $this->actingAs($this->admin)->get('/logout');
+        $resGetAuth->assertRedirect('/login');
+        $resGetAuth->assertSessionHas('success');
+        $this->assertGuest();
+
+        // 2. POST /logout saat user terautentikasi -> logout, redirect ke /login dengan pesan sukses
+        $resPostAuth = $this->actingAs($this->teller)->post('/logout');
+        $resPostAuth->assertRedirect('/login');
+        $resPostAuth->assertSessionHas('success');
+        $this->assertGuest();
+
+        // 3. GET /logout saat guest -> tetap redirect ke /login tanpa error 405 MethodNotAllowed
+        $resGetGuest = $this->get('/logout');
+        $resGetGuest->assertRedirect('/login');
     }
 }

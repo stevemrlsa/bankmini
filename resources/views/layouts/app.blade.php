@@ -1010,9 +1010,9 @@
                 margin: 0 !important;
                 padding: 0 !important;
                 width: 100% !important;
-                height: 100% !important;
+                height: auto !important;
                 min-height: 0 !important;
-                overflow: hidden !important;
+                overflow: visible !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
@@ -1056,54 +1056,66 @@
 
             #printableReceipt,
             #printableFocusReceipt {
-                position: fixed !important;
-                left: 50% !important;
-                top: 50% !important;
-                transform: translate(-50%, -50%) !important;
                 display: block !important;
-                padding: 28px 32px !important;
-                margin: 0 auto !important;
-                width: 440px !important;
-                max-width: 92vw !important;
-                font-size: 1rem !important;
+                position: relative !important;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+                transform: none !important;
+                float: none !important;
+                margin: 20mm auto 0 auto !important;
+                width: 480px !important;
+                max-width: 90% !important;
+                padding: 30px 34px !important;
+                font-size: 1.05rem !important;
                 color: #0F172A !important;
                 background: #FFFFFF !important;
-                border: 1.5px dashed #475569 !important;
-                border-radius: 16px !important;
+                border: 2px dashed #334155 !important;
+                border-radius: 18px !important;
                 box-shadow: none !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+            }
+
+            #printableReceipt .bi,
+            #printableFocusReceipt .bi {
+                font-size: 2.2rem !important;
             }
 
             #printableReceipt h5,
             #printableReceipt h6,
             #printableFocusReceipt h5,
             #printableFocusReceipt h6 {
-                font-size: 1.25rem !important;
+                font-size: 1.35rem !important;
+                font-weight: 800 !important;
+                letter-spacing: 0.5px !important;
             }
 
             #printableReceipt .small,
             #printableFocusReceipt .small {
                 font-size: 0.95rem !important;
+                line-height: 1.6 !important;
             }
 
             #printableReceipt .fs-5,
             #printableFocusReceipt .fs-5 {
-                font-size: 1.45rem !important;
+                font-size: 1.7rem !important;
+                font-weight: 800 !important;
             }
 
             #printableReceipt .bg-light,
             #printableFocusReceipt .bg-light {
                 background-color: #F8FAFC !important;
-                border: 1px dashed #CBD5E1 !important;
-                padding: 12px 16px !important;
+                border: 1.5px dashed #94A3B8 !important;
+                padding: 16px 20px !important;
+                margin: 16px 0 !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
             @page {
-                size: auto;
-                margin: 8mm;
+                size: portrait;
+                margin: 10mm;
             }
         }
     </style>
@@ -1232,7 +1244,7 @@
                     <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
                         @csrf
                     </form>
-                    <a href="#" class="nav-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                    <a href="{{ route('logout') }}" class="nav-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                         <i class="bi bi-box-arrow-left"></i> Keluar
                     </a>
                 @endauth

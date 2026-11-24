@@ -60,7 +60,7 @@ Route::get('/download-apk', function () {
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
 // ========================================================
 // ALUR LUPA PASSWORD PEGAWAI & NASABAH (OTP VIA EMAIL)
