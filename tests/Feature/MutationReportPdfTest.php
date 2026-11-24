@@ -128,37 +128,38 @@ class MutationReportPdfTest extends TestCase
             'status'           => 'Approved',
         ]);
 
-        // 1. Default Hari Ini (tanpa shift terbuka tetap HTTP 200)
+        // 1. Default Hari Ini (tanpa shift terbuka tetap HTTP 200) & opsi Kemarin/Rentang Kustom tidak tampil
         $resToday = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', ['period' => 'today']));
         $resToday->assertStatus(200);
         $resToday->assertSee('Siswa Mutasi Satu');
         $resToday->assertSee('Rp 50.000');
         $resToday->assertDontSee('Siswa Mutasi Dua');
         $resToday->assertDontSee('500.000');
+        $resToday->assertDontSee('Kemarin');
+        $resToday->assertDontSee('Rentang Kustom');
 
-        // 2. Preset Kemarin
-        $resYesterday = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', ['period' => 'yesterday']));
-        $resYesterday->assertStatus(200);
-        $resYesterday->assertSee('Rp 25.000');
-        $resYesterday->assertDontSee('Rp 50.000');
+        // 2. Parameter lama (yesterday/custom) fallback aman ke Hari Ini
+        $resLegacyYesterday = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', ['period' => 'yesterday']));
+        $resLegacyYesterday->assertStatus(200);
+        $resLegacyYesterday->assertSee('Rp 50.000');
+        $resLegacyYesterday->assertDontSee('Rp 25.000');
 
-        // 3. Preset Bulan Ini
+        // 3. Preset Bulan Ini (termasuk transaksi kemarin & awal bulan ini)
         $resMonth = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', ['period' => 'this_month']));
         $resMonth->assertStatus(200);
         $resMonth->assertSee('Siswa Mutasi Satu');
         $resMonth->assertSee('Siswa Mutasi Dua');
+        $resMonth->assertSee('Rp 25.000');
         $resMonth->assertDontSee('99.000');
 
-        // 3b. Filter Jenis Transaksi + Rentang Kustom
-        $resCustomWithdraw = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', [
-            'period'     => 'custom',
-            'start_date' => $now->copy()->subDay()->toDateString(),
-            'end_date'   => $now->toDateString(),
-            'type'       => 'withdrawal',
+        // 3b. Filter Jenis Transaksi pada Bulan Ini
+        $resMonthWithdraw = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', [
+            'period' => 'this_month',
+            'type'   => 'withdrawal',
         ]));
-        $resCustomWithdraw->assertStatus(200);
-        $resCustomWithdraw->assertSee('Rp 25.000');
-        $resCustomWithdraw->assertDontSee('Rp 50.000');
+        $resMonthWithdraw->assertStatus(200);
+        $resMonthWithdraw->assertSee('Rp 25.000');
+        $resMonthWithdraw->assertDontSee('Rp 50.000');
 
         // 4. Ekspor PDF Hari Ini (inline stream) & Download mode
         $pdfStream = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations.pdf', ['period' => 'today']));
@@ -195,7 +196,7 @@ class MutationReportPdfTest extends TestCase
             'status'       => 'Aktif',
         ]);
 
-        // Shift bersama kemarin diikuti Teller A dan Teller B (sudah Closed)
+        // Shift bersama hari ini diikuti Teller A dan Teller B
         TellerShift::create([
             'user_id'         => $this->tellerA->id,
             'shared_user_ids' => [$this->tellerB->id],
@@ -203,32 +204,32 @@ class MutationReportPdfTest extends TestCase
             'closing_balance' => 200000,
             'system_balance'  => 200000,
             'status'          => 'Closed',
-            'opened_at'       => $now->copy()->subDay()->setTime(7, 0),
-            'closed_at'       => $now->copy()->subDay()->setTime(15, 0),
+            'opened_at'       => $now->copy()->setTime(7, 0),
+            'closed_at'       => $now->copy()->setTime(15, 0),
         ]);
 
-        // Transaksi oleh Teller B di dalam shift kemarin -> harus masuk saat scope=shift
+        // Transaksi oleh Teller B di dalam shift hari ini -> harus masuk saat scope=shift
         Transaction::create([
             'saver_id'         => $this->saverTwo->id,
             'user_id'          => $this->tellerB->id,
-            'transaction_date' => $now->copy()->subDay()->setTime(10, 0),
+            'transaction_date' => $now->copy()->setTime(10, 0),
             'transaction_type' => 'Deposit',
             'amount'           => 77000,
             'status'           => 'Approved',
         ]);
 
-        // Transaksi oleh Teller C kemarin -> tidak boleh muncul walau scope=shift
+        // Transaksi oleh Teller C hari ini -> tidak boleh muncul walau scope=shift
         Transaction::create([
             'saver_id'         => $this->saverTwo->id,
             'user_id'          => $tellerC->id,
-            'transaction_date' => $now->copy()->subDay()->setTime(11, 0),
+            'transaction_date' => $now->copy()->setTime(11, 0),
             'transaction_type' => 'Deposit',
             'amount'           => 88000,
             'status'           => 'Approved',
         ]);
 
         $mineResponse = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', [
-            'period' => 'yesterday',
+            'period' => 'today',
             'scope'  => 'mine',
         ]));
         $mineResponse->assertStatus(200);
@@ -236,7 +237,7 @@ class MutationReportPdfTest extends TestCase
         $mineResponse->assertDontSee('88.000');
 
         $shiftResponse = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations', [
-            'period' => 'yesterday',
+            'period' => 'today',
             'scope'  => 'shift',
         ]));
         $shiftResponse->assertStatus(200);
@@ -248,9 +249,8 @@ class MutationReportPdfTest extends TestCase
     public function test_teller_empty_report_still_exports_valid_pdf(): void
     {
         $pdfRes = $this->actingAs($this->tellerA)->get(route('teller.reports.mutations.pdf', [
-            'period'     => 'custom',
-            'start_date' => '2026-01-01',
-            'end_date'   => '2026-01-05',
+            'period' => 'today',
+            'search' => 'NASABAH_TIDAK_DITEMUKAN_XYZ',
         ]));
 
         $pdfRes->assertStatus(200);

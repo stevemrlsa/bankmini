@@ -87,9 +87,12 @@
                 </p>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="button" class="btn btn-action-activate" data-bs-toggle="modal" data-bs-target="#modalCreateNonStudentTeller">
+                    <i class="bi bi-person-plus-fill me-1"></i> + Tambah &amp; Aktivasi Nasabah Non-Siswa
+                </button>
                 @if(!empty($currentClass) && !request('search'))
                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-bold">
-                        <i class="bi bi-Easel2-fill me-1"></i> Kelas {{ $currentClass }} ({{ $members->count() }} Siswa)
+                        <i class="bi bi-Easel2-fill me-1"></i> Kelas {{ $currentClass }} ({{ $members->count() }} Nasabah)
                     </span>
                 @endif
                 <span class="badge badge-soft-warning px-3 py-2 rounded-pill fw-semibold">
@@ -454,6 +457,94 @@
         </div>
     </div>
 @endforeach
+
+{{-- Modal Tambah & Aktivasi Langsung Nasabah Baru (Non-Siswa: Guru, Staf, Ibu Kantin / Warga Sekolah) oleh Teller --}}
+<div class="modal fade" id="modalCreateNonStudentTeller" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; background: #E6FFFA; color: #0F766E;">
+                        <i class="bi bi-person-badge-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark m-0">
+                            Daftar &amp; Aktivasi Nasabah Baru (Guru / Staf / Warga Sekolah / Kantin)
+                        </h5>
+                        <p class="text-muted small mb-0">
+                            Pendaftaran rekening baru sekaligus setoran awal (Minimal Rp 10.000) di loket Teller
+                        </p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Batal"></button>
+            </div>
+
+            <form action="{{ route('teller.activations.store') }}" method="POST">
+                @csrf
+                <div class="modal-body py-4 px-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Kategori Nasabah <span class="text-danger">*</span></label>
+                            <select name="category" class="form-select" required>
+                                <option value="community">Kantin &amp; Warga Sekolah</option>
+                                <option value="teacher">Guru / Pendidik</option>
+                                <option value="staff">Staf &amp; Karyawan</option>
+                                <option value="student">Siswa</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Nama Lengkap Nasabah <span class="text-danger">*</span></label>
+                            <input type="text" name="student_name" class="form-control" placeholder="Contoh: Ibu Sari (Kantin Sekolah)" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">NIP / NIK / ID Nasabah (Opsional)</label>
+                            <input type="text" name="student_id" class="form-control" placeholder="Kosongkan untuk kode ID otomatis (misal WS-2026001)">
+                            <small class="text-muted" style="font-size: 0.74rem;">Boleh dikosongkan untuk warga sekolah/kantin/guru tanpa NIP.</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Unit / Jabatan / Kelas <span class="text-danger">*</span></label>
+                            <input type="text" name="grade_class" class="form-control" value="Warga Sekolah / Kantin" placeholder="Contoh: Ibu Kantin, Guru, Staf TU" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Username Login (Opsional)</label>
+                            <input type="text" name="username" class="form-control" placeholder="Otomatis dibuat jika dikosongkan">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Email (Opsional)</label>
+                            <input type="email" name="email" class="form-control" placeholder="Otomatis dibuat jika dikosongkan">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Nomor WhatsApp Aktif <span class="text-danger">*</span></label>
+                            <input type="text" name="whatsapp_number" class="form-control" placeholder="081234567890" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-dark small">Nominal Setoran Awal (Rp) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-dark fw-bold">Rp</span>
+                                <input type="number" name="amount" min="10000" step="1000" value="10000" class="form-control fw-bold text-success fs-5" required>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.74rem;">Minimal Rp 10.000 (PIN &amp; Password default: <code>123456</code>).</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0 pb-4 px-4 gap-2">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-action-activate px-4">
+                        <i class="bi bi-check-circle-fill me-1"></i> Daftarkan &amp; Aktifkan Sekarang
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @push('scripts')
 @if(old('active_modal_id'))

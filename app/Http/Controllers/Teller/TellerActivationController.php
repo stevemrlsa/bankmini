@@ -115,6 +115,85 @@ class TellerActivationController extends Controller
     }
 
     /**
+     * Pendaftaran & One-Stop Aktivasi langsung Nasabah Baru (Non-Siswa: Guru, Staf, Ibu Kantin/Warga Sekolah, maupun Siswa) oleh Teller.
+     */
+    public function store(Request $request)
+    {
+        $category = strtolower(trim((string) $request->input('category', 'community')));
+        if (!array_key_exists($category, Saver::CATEGORIES)) {
+            $category = 'community';
+        }
+        $isNonStudent = $category !== 'student';
+
+        $rawStudentId = trim((string) $request->input('student_id', ''));
+        if ($isNonStudent && $rawStudentId === '') {
+            $rawStudentId = Saver::generateNonStudentId($category);
+        }
+
+        $rawGradeClass = trim((string) $request->input('grade_class', ''));
+        if ($isNonStudent) {
+            $rawGradeClass = Saver::defaultGradeForCategory($category, $rawGradeClass);
+        }
+
+        $cleanSlugId = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '_', $rawStudentId ?: 'nasabah'));
+        $defaultUsername = ($isNonStudent ? 'nasabah_' : 'siswa_') . $cleanSlugId;
+        $rawUsername = trim((string) $request->input('username', ''));
+        if ($rawUsername === '') {
+            $rawUsername = $defaultUsername;
+        }
+        $rawEmail = strtolower(trim((string) $request->input('email', '')));
+        if ($rawEmail === '') {
+            $rawEmail = $rawUsername . '@bankmini.sch.id';
+        }
+
+        $request->merge([
+            'category'     => $category,
+            'student_id'   => $rawStudentId,
+            'grade_class'  => $rawGradeClass,
+            'username'     => $rawUsername,
+            'email'        => $rawEmail,
+        ]);
+
+        $request->validate([
+            'category'        => 'required|string|in:student,teacher,staff,community',
+            'student_id'      => 'required|string|max:30|unique:savers,student_id',
+            'student_name'    => 'required|string|max:255',
+            'grade_class'     => 'required|string|max:60',
+            'username'        => 'required|string|max:255|unique:users,username',
+            'email'           => 'required|email|max:255|unique:users,email',
+            'whatsapp_number' => 'required|string|min:9|max:20|unique:users,whatsapp_number',
+            'amount'          => 'required|numeric|min:10000',
+        ], [
+            'student_id.unique'        => 'NIP / NIK / ID Nasabah tersebut sudah terdaftar.',
+            'student_name.required'    => 'Nama lengkap nasabah wajib diisi.',
+            'grade_class.required'     => 'Jabatan / Unit / Kelas wajib diisi.',
+            'username.unique'          => 'Username sudah digunakan oleh akun lain.',
+            'email.unique'             => 'Email sudah terdaftar pada akun lain.',
+            'whatsapp_number.required' => 'Nomor WhatsApp wajib diisi.',
+            'whatsapp_number.unique'   => 'Nomor WhatsApp sudah digunakan oleh akun lain.',
+            'amount.min'               => 'Setoran awal minimal adalah Rp 10.000.',
+        ]);
+
+        $defaultHash = Hash::make('123456');
+        $saverData = [
+            'student_id'   => $request->student_id,
+            'student_name' => $request->student_name,
+            'grade_class'  => $request->grade_class,
+            'security_pin' => $defaultHash,
+            'password'     => $defaultHash,
+            'status'       => 'inactive',
+            'saldo'        => 0,
+        ];
+        if (Schema::hasColumn('savers', 'category')) {
+            $saverData['category'] = $category;
+        }
+
+        $saver = Saver::create($saverData);
+
+        return $this->activate($request, $saver->id);
+    }
+
+    /**
      * Perform One-Stop Activation for student by Teller:
      * - Create/Update User login account (username, email, whatsapp_number, password)
      * - Activate Saver record with generated unique Account Number
@@ -149,8 +228,8 @@ class TellerActivationController extends Controller
 
         // Check if an existing User already exists for this student
         $existingUser = null;
-        if ($saver && !empty($saver->user_id)) {
-            $existingUser = User::find($saver->user_id);
+        if ($saver && Schema::hasColumn('savers', 'user_id') && !empty($saver->getAttributes()['user_id'] ?? null)) {
+            $existingUser = User::find($saver->getAttributes()['user_id']);
         }
         if (!$existingUser && $member && $member->user_id) {
             $existingUser = User::find($member->user_id);
@@ -259,9 +338,15 @@ class TellerActivationController extends Controller
                     ]);
                 } else {
                     $user = new User();
-                    // Jika data member sudah punya user_id dan belum ada di tabel users, gunakan user_id tersebut
+                    // Jika data member sudah punya user_id dan belum ada di tabel users, gunakan user_id tersebut;
+                    // jika belum, pilih ID aman di atas max(users.id) dan max(members.user_id) agar bebas bentrok PK & FK
                     if ($member && !empty($member->user_id) && !User::where('id', $member->user_id)->exists()) {
                         $user->id = $member->user_id;
+                    } else {
+                        $user->id = max(
+                            (int) DB::table('users')->max('id'),
+                            Schema::hasTable('members') ? (int) DB::table('members')->max('user_id') : 0
+                        ) + 1;
                     }
                     $user->username        = $validated['username'];
                     $user->email           = $validated['email'];

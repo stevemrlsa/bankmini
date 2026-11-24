@@ -27,9 +27,7 @@
         'search'     => $search,
     ];
     $pdfParams = array_merge($baseFilterParams, [
-        'period'     => $activePeriod,
-        'start_date' => $periodData['start_date'],
-        'end_date'   => $periodData['end_date'],
+        'period' => $activePeriod,
     ]);
 @endphp
 
@@ -69,24 +67,11 @@
             <i class="bi bi-calendar-check me-1"></i> Hari Ini
         </a>
 
-        <a href="{{ route('teller.reports.mutations', array_merge($baseFilterParams, ['period' => 'yesterday'])) }}"
-           class="btn btn-sm rounded-pill px-3 fw-semibold {{ $activePeriod === 'yesterday' ? 'btn-dark' : 'btn-outline-secondary' }}"
-           style="{{ $activePeriod === 'yesterday' ? 'background: #16233F; border-color: #16233F;' : '' }}">
-            <i class="bi bi-calendar-minus me-1"></i> Kemarin
-        </a>
-
         <a href="{{ route('teller.reports.mutations', array_merge($baseFilterParams, ['period' => 'this_month'])) }}"
            class="btn btn-sm rounded-pill px-3 fw-semibold {{ $activePeriod === 'this_month' ? 'btn-dark' : 'btn-outline-secondary' }}"
            style="{{ $activePeriod === 'this_month' ? 'background: #16233F; border-color: #16233F;' : '' }}">
             <i class="bi bi-calendar3 me-1"></i> Bulan Ini
         </a>
-
-        <button type="button"
-                id="btnToggleCustomPeriod"
-                class="btn btn-sm rounded-pill px-3 fw-semibold {{ $activePeriod === 'custom' ? 'btn-dark' : 'btn-outline-secondary' }}"
-                style="{{ $activePeriod === 'custom' ? 'background: #16233F; border-color: #16233F;' : '' }}">
-            <i class="bi bi-calendar-range me-1"></i> Rentang Kustom
-        </button>
     </div>
 
     {{-- Form Filter Lengkap --}}
@@ -108,16 +93,6 @@
                 <option value="deposit" {{ $normalizedType === 'deposit' ? 'selected' : '' }}>Setoran Tunai (Deposit)</option>
                 <option value="withdrawal" {{ $normalizedType === 'withdrawal' ? 'selected' : '' }}>Penarikan Tunai (Withdrawal)</option>
             </select>
-        </div>
-
-        <div class="col-md-3 col-sm-6 custom-date-field {{ $activePeriod === 'custom' ? '' : 'd-none' }}">
-            <label class="form-label small fw-semibold text-muted mb-1">Dari Tanggal</label>
-            <input type="date" name="start_date" class="form-control form-control-sm rounded-3" value="{{ $periodData['start_date'] }}">
-        </div>
-
-        <div class="col-md-3 col-sm-6 custom-date-field {{ $activePeriod === 'custom' ? '' : 'd-none' }}">
-            <label class="form-label small fw-semibold text-muted mb-1">Sampai Tanggal</label>
-            <input type="date" name="end_date" class="form-control form-control-sm rounded-3" value="{{ $periodData['end_date'] }}">
         </div>
 
         <div class="col-md-4 col-sm-8">
@@ -266,26 +241,3 @@
     @endif
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    (function () {
-        const btnToggle = document.getElementById('btnToggleCustomPeriod');
-        const inputMode = document.getElementById('inputPeriodMode');
-        const customFields = document.querySelectorAll('.custom-date-field');
-
-        if (btnToggle && inputMode) {
-            btnToggle.addEventListener('click', function () {
-                inputMode.value = 'custom';
-                customFields.forEach(function (el) {
-                    el.classList.remove('d-none');
-                });
-                btnToggle.classList.remove('btn-outline-secondary');
-                btnToggle.classList.add('btn-dark');
-                btnToggle.style.background = '#16233F';
-                btnToggle.style.borderColor = '#16233F';
-            });
-        }
-    })();
-</script>
-@endpush

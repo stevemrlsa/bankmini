@@ -75,9 +75,11 @@
             <form action="{{ route('teller.report.store') }}" method="POST">
                 @csrf
 
+                @include('teller.partials.cash_denominations_table')
+
                 <div class="mb-3">
                     <label class="form-label fw-bold text-dark" for="physical_cash">
-                        Hitung & Masukkan Uang Fisik di Laci Kasir (Rp) <span class="text-danger">*</span>
+                        Total Uang Fisik di Laci Kasir (Rp) <span class="text-danger">*</span>
                     </label>
                     <div class="input-group input-group-lg">
                         <span class="input-group-text bg-white fw-bold">Rp</span>

@@ -188,7 +188,19 @@
                                         <div class="fw-bold text-primary fs-6">
                                             Rp {{ number_format($report->closing_balance_physical ?? 0, 0, ',', '.') }}
                                         </div>
-                                        <small class="text-muted" style="font-size: 0.72rem;">Hitungan fisik laci</small>
+                                        <small class="text-muted d-block" style="font-size: 0.72rem;">Hitungan fisik laci</small>
+                                        @php
+                                            $denoms = is_array($report->cash_denominations ?? null) ? array_filter($report->cash_denominations, fn($q) => (int)$q > 0) : [];
+                                        @endphp
+                                        @if(count($denoms) > 0)
+                                            <div class="d-flex flex-wrap gap-1 mt-1" style="max-width: 240px;">
+                                                @foreach($denoms as $dVal => $dQty)
+                                                    <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.68rem;">
+                                                        {{ number_format((int)$dVal, 0, ',', '.') }} &times; {{ (int)$dQty }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     @endif
                                 </td>
 

@@ -68,27 +68,12 @@ class MutationReportService
     }
 
     /**
-     * Resolusi periode preset untuk laporan mutasi Teller (Hari Ini, Kemarin, Bulan Ini, Kustom).
+     * Resolusi periode preset untuk laporan mutasi Teller (Hari Ini dan Bulan Ini).
      */
-    public function resolveTellerPeriod(?string $period, ?string $startDate, ?string $endDate): array
+    public function resolveTellerPeriod(?string $period, ?string $startDate = null, ?string $endDate = null): array
     {
         $now = Carbon::now('Asia/Jakarta');
-        $normalizedPeriod = in_array($period, ['today', 'yesterday', 'this_month', 'custom'], true)
-            ? $period
-            : 'today';
-
-        if ($normalizedPeriod === 'yesterday') {
-            $day = $now->copy()->subDay();
-
-            return [
-                'period'     => 'yesterday',
-                'label'      => 'Kemarin (' . $day->translatedFormat('d F Y') . ')',
-                'start_date' => $day->toDateString(),
-                'end_date'   => $day->toDateString(),
-                'start_at'   => $day->copy()->startOfDay(),
-                'end_at'     => $day->copy()->endOfDay(),
-            ];
-        }
+        $normalizedPeriod = $period === 'this_month' ? 'this_month' : 'today';
 
         if ($normalizedPeriod === 'this_month') {
             return [
@@ -98,37 +83,6 @@ class MutationReportService
                 'end_date'   => $now->copy()->endOfMonth()->toDateString(),
                 'start_at'   => $now->copy()->startOfMonth()->startOfDay(),
                 'end_at'     => $now->copy()->endOfMonth()->endOfDay(),
-            ];
-        }
-
-        if ($normalizedPeriod === 'custom') {
-            $parsedStart = $this->parseDateSafe($startDate);
-            $parsedEnd = $this->parseDateSafe($endDate);
-
-            if (!$parsedStart && !$parsedEnd) {
-                $parsedStart = $now->copy();
-                $parsedEnd = $now->copy();
-            } elseif ($parsedStart && !$parsedEnd) {
-                $parsedEnd = $parsedStart->copy();
-            } elseif (!$parsedStart && $parsedEnd) {
-                $parsedStart = $parsedEnd->copy();
-            }
-
-            if ($parsedStart->gt($parsedEnd)) {
-                [$parsedStart, $parsedEnd] = [$parsedEnd, $parsedStart];
-            }
-
-            $label = $parsedStart->isSameDay($parsedEnd)
-                ? $parsedStart->translatedFormat('d F Y')
-                : $parsedStart->translatedFormat('d M Y') . ' s/d ' . $parsedEnd->translatedFormat('d M Y');
-
-            return [
-                'period'     => 'custom',
-                'label'      => $label,
-                'start_date' => $parsedStart->toDateString(),
-                'end_date'   => $parsedEnd->toDateString(),
-                'start_at'   => $parsedStart->copy()->startOfDay(),
-                'end_at'     => $parsedEnd->copy()->endOfDay(),
             ];
         }
 

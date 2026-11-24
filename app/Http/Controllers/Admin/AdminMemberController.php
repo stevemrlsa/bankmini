@@ -100,6 +100,111 @@ class AdminMemberController extends Controller
     }
 
     /**
+     * Tambah calon anggota baru (Siswa maupun Non-Siswa: Guru, Staf, Warga Sekolah/Kantin)
+     * agar siap diaktivasi oleh Admin maupun Teller.
+     */
+    public function store(Request $request)
+    {
+        $category = strtolower(trim((string) $request->input('category', 'student')));
+        if (!array_key_exists($category, Saver::CATEGORIES)) {
+            $category = 'student';
+        }
+        $isNonStudent = $category !== 'student';
+
+        $rawStudentId = trim((string) $request->input('student_id', ''));
+        if ($isNonStudent && $rawStudentId === '') {
+            $rawStudentId = Saver::generateNonStudentId($category);
+        }
+
+        $rawGradeClass = trim((string) $request->input('grade_class', ''));
+        if ($isNonStudent) {
+            $rawGradeClass = Saver::defaultGradeForCategory($category, $rawGradeClass);
+        }
+
+        $rawName = trim((string) ($request->input('student_name') ?? $request->input('name', '')));
+
+        $request->merge([
+            'category'     => $category,
+            'student_id'   => $rawStudentId,
+            'student_name' => $rawName,
+            'grade_class'  => $rawGradeClass,
+        ]);
+
+        $request->validate([
+            'category'     => 'required|string|in:student,teacher,staff,community',
+            'student_id'   => 'required|string|max:30|unique:savers,student_id',
+            'student_name' => 'required|string|max:255',
+            'grade_class'  => 'required|string|max:60',
+        ], [
+            'student_id.required'   => 'NIS / NIP / ID Anggota wajib diisi.',
+            'student_id.unique'     => 'NIS / NIP / ID Anggota tersebut sudah terdaftar di sistem.',
+            'student_name.required' => 'Nama lengkap calon nasabah wajib diisi.',
+            'grade_class.required'  => 'Kelas / Unit / Jabatan wajib diisi.',
+        ]);
+
+        $defaultHash = Hash::make('123456');
+        $saverData = [
+            'student_id'   => $request->student_id,
+            'student_name' => $request->student_name,
+            'grade_class'  => $request->grade_class,
+            'security_pin' => $defaultHash,
+            'password'     => $defaultHash,
+            'status'       => 'inactive',
+            'saldo'        => 0,
+        ];
+        if (Schema::hasColumn('savers', 'category')) {
+            $saverData['category'] = $category;
+        }
+
+        $saver = Saver::create($saverData);
+
+        $user = User::where('username', 'siswa_' . $request->student_id)->first();
+        if (!$user) {
+            $nextSafeUserId = max(
+                (int) DB::table('users')->max('id'),
+                Schema::hasTable('members') ? (int) DB::table('members')->max('user_id') : 0
+            ) + 1;
+
+            $user = new User();
+            $user->id           = $nextSafeUserId;
+            $user->username     = 'siswa_' . $request->student_id;
+            $user->password     = $defaultHash;
+            $user->officer_name = $request->student_name;
+            $user->role         = 'Saver';
+            if (Schema::hasColumn('users', 'status')) {
+                $user->status = 'Aktif';
+            }
+            $user->save();
+        }
+
+        if (Schema::hasTable('members')) {
+            $memberData = [
+                'user_id'         => $user->id,
+                'name'            => $request->student_name,
+                'grade_class'     => $request->grade_class,
+                'graduation_year' => date('Y'),
+                'security_pin'    => $defaultHash,
+                'status'          => 'inactive',
+            ];
+            if (Schema::hasColumn('members', 'category')) {
+                $memberData['category'] = $category;
+            }
+            Member::updateOrCreate(['student_id' => $request->student_id], $memberData);
+        }
+
+        \App\Models\AuditLog::record(
+            'TAMBAH_ANGGOTA',
+            'Data Anggota',
+            "Menambahkan calon anggota baru ({$saver->category_label}): {$saver->student_name} (ID: {$saver->student_id}, Unit/Kelas: {$saver->grade_class}).",
+            auth()->id(),
+            auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+        );
+
+        return redirect()->route('admin.members.index', ['class' => $saver->grade_class])
+            ->with('success', "Calon nasabah {$saver->student_name} ({$saver->category_label} - ID: {$saver->student_id}) berhasil ditambahkan dan siap diaktivasi!");
+    }
+
+    /**
      * Show Excel import form.
      */
     public function importForm()

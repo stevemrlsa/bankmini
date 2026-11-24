@@ -48,6 +48,13 @@ class AdminCustomerController extends Controller
             $query = Saver::query();
         }
 
+        // 1b. Filter Kategori Nasabah (Siswa vs Non-Siswa: Guru, Staf, Warga Sekolah/Kantin)
+        if ($request->filled('category') && array_key_exists($request->category, Saver::CATEGORIES)) {
+            if (Schema::hasColumn('savers', 'category')) {
+                $query->where('category', $request->category);
+            }
+        }
+
         // 2. Search by Student Name or NIS (student_id) - Mengabaikan filter kelas saat mencari
         if ($request->filled('search')) {
             $searchTerm = trim($request->search);
@@ -212,7 +219,7 @@ class AdminCustomerController extends Controller
     protected function calculatePromotedGrade(?string $grade): array
     {
         $grade = trim($grade ?? '');
-        if ($grade === '' || str_starts_with(strtolower($grade), 'lulus')) {
+        if ($grade === '' || str_starts_with(strtolower($grade), 'lulus') || Saver::isNonStudentGrade($grade)) {
             return ['new_grade' => $grade, 'graduated' => false];
         }
 
@@ -268,9 +275,12 @@ class AdminCustomerController extends Controller
         $graduatedCount = 0;
 
         DB::transaction(function () use (&$promotedCount, &$graduatedCount) {
-            // 1. Ambil SELURUH siswa di tabel savers (baik aktif maupun nonaktif)
+            // 1. Ambil SELURUH siswa di tabel savers (kecualikan nasabah non-siswa: Guru, Staf, Warga Sekolah/Kantin)
             $allSavers = Saver::all();
             foreach ($allSavers as $student) {
+                if ($student->isNonStudent()) {
+                    continue;
+                }
                 $calc = $this->calculatePromotedGrade($student->grade_class);
                 if ($calc['new_grade'] !== $student->grade_class) {
                     $updateData = ['grade_class' => $calc['new_grade']];
@@ -286,10 +296,14 @@ class AdminCustomerController extends Controller
                 }
             }
 
-            // 2. Ambil SELURUH data anggota di tabel members (baik aktif maupun nonaktif) agar data sekolah selalu sinkron
+            // 2. Ambil SELURUH data anggota di tabel members (kecualikan non-siswa) agar data sekolah selalu sinkron
             if (class_exists(Member::class)) {
                 $allMembers = Member::all();
                 foreach ($allMembers as $member) {
+                    $memberCategory = strtolower(trim((string) ($member->category ?? 'student')));
+                    if ($memberCategory !== 'student' || Saver::isNonStudentGrade($member->grade_class)) {
+                        continue;
+                    }
                     $calc = $this->calculatePromotedGrade($member->grade_class);
                     if ($calc['new_grade'] !== $member->grade_class) {
                         $updateData = ['grade_class' => $calc['new_grade']];
@@ -405,70 +419,131 @@ class AdminCustomerController extends Controller
     }
 
     /**
-     * Store a newly created saver / initial deposit.
+     * Store a newly created saver (Siswa maupun Non-Siswa: Guru, Staf, Warga Sekolah/Kantin) + initial deposit.
      */
     public function store(Request $request)
     {
+        $category = strtolower(trim((string) $request->input('category', 'student')));
+        if (!array_key_exists($category, Saver::CATEGORIES)) {
+            $category = 'student';
+        }
+        $isNonStudent = $category !== 'student';
+
+        // Otomatis isi ID & Unit/Jabatan bila nasabah Non-Siswa dan dikosongkan
+        $rawStudentId = trim((string) $request->input('student_id', ''));
+        if ($isNonStudent && $rawStudentId === '') {
+            $rawStudentId = Saver::generateNonStudentId($category);
+        }
+
+        $rawGradeClass = trim((string) $request->input('grade_class', ''));
+        if ($isNonStudent) {
+            $rawGradeClass = Saver::defaultGradeForCategory($category, $rawGradeClass);
+        }
+
+        $rawInitialDeposit = $request->filled('initial_deposit')
+            ? str_replace('.', '', (string) $request->input('initial_deposit'))
+            : 10000;
+        $rawPin = $request->filled('security_pin')
+            ? trim((string) $request->input('security_pin'))
+            : '123456';
+
+        $request->merge([
+            'category'        => $category,
+            'student_id'      => $rawStudentId,
+            'grade_class'     => $rawGradeClass,
+            'initial_deposit' => $rawInitialDeposit,
+            'security_pin'    => $rawPin,
+        ]);
+
         // 1. Validasi Input (Setoran awal minimal Rp 10.000)
         $request->validate([
-            'student_id'      => 'required|string|max:20|unique:savers,student_id',
+            'category'        => 'required|string|in:student,teacher,staff,community',
+            'student_id'      => 'required|string|max:30|unique:savers,student_id',
             'student_name'    => 'required|string|max:100',
-            'grade_class'     => 'required|string|max:50',
+            'grade_class'     => 'required|string|max:60',
             'initial_deposit' => 'required|numeric|min:10000',
             'security_pin'    => 'required|digits:6',
         ], [
             'initial_deposit.min' => 'Setoran awal pembukaan rekening minimal Rp 10.000.',
-            'student_id.unique'   => 'NIS siswa ini sudah terdaftar sebagai nasabah.',
+            'student_id.unique'   => 'NIS / NIP / ID Nasabah ini sudah terdaftar sebagai nasabah.',
+            'student_id.required' => 'NIS / ID Nasabah wajib diisi.',
         ]);
 
         try {
-            DB::transaction(function () use ($request) {
-                // 2. Generate No Rekening otomatis (Tahun + 4 digit urutan)
-                $accountNumber = date('Y') . str_pad(Saver::count() + 1, 4, '0', STR_PAD_LEFT);
+            $createdSaver = null;
+            DB::transaction(function () use ($request, $category, &$createdSaver) {
+                // 2. Generate No Rekening otomatis (Tahun + 4 digit urutan bebas bentrok soft-delete)
+                $schoolYear = date('Y');
+                $lastSaver = Saver::withTrashed()
+                    ->where('account_number', 'like', $schoolYear . '%')
+                    ->orderBy('account_number', 'desc')
+                    ->first();
+                $nextSequence = $lastSaver ? ((int) substr($lastSaver->account_number, -4) + 1) : 1;
+                $accountNumber = $schoolYear . str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
 
                 // 3. Buat Data Saver / Nasabah Baru
-                $saver = Saver::create([
+                $saverData = [
                     'account_number' => $accountNumber,
                     'student_id'     => $request->student_id,
                     'student_name'   => $request->student_name,
                     'grade_class'    => $request->grade_class,
                     'security_pin'   => Hash::make($request->security_pin),
+                    'password'       => Hash::make('123456'),
                     'saldo'          => $request->initial_deposit,
                     'status'         => 'active',
-                ]);
+                ];
+                if (Schema::hasColumn('savers', 'category')) {
+                    $saverData['category'] = $category;
+                }
+
+                $saver = Saver::create($saverData);
+                $createdSaver = $saver;
 
                 // 4. Catat Transaksi Setoran Awal
+                $adminOrTellerId = auth()->id() ?? User::first()?->id ?? 1;
                 $transaction = Transaction::create([
                     'saver_id'         => $saver->id,
-                    'user_id'          => auth()->id(),
+                    'user_id'          => $adminOrTellerId,
                     'transaction_date' => now(),
                     'transaction_type' => 'Deposit',
                     'amount'           => $request->initial_deposit,
                     'status'           => 'Approved',
                 ]);
 
-                // 5. Catat Jurnal Akuntansi Double-Entry (Kas Debit, Tabungan Siswa Kredit)
-                AccountingJournal::insert([
-                    [
-                        'transaction_id' => $transaction->id,
-                        'account_code'   => '101', // Kode Akun Kas Teller
-                        'position'       => 'Debit',
-                        'amount'         => $request->initial_deposit,
-                        'created_at'     => now(),
-                        'updated_at'     => now(),
-                    ],
-                    [
-                        'transaction_id' => $transaction->id,
-                        'account_code'   => '201', // Kode Akun Tabungan Siswa
-                        'position'       => 'Credit',
-                        'amount'         => $request->initial_deposit,
-                        'created_at'     => now(),
-                        'updated_at'     => now(),
-                    ]
-                ]);
+                // 5. Catat Jurnal Akuntansi Double-Entry (Kas Debit, Tabungan Nasabah Kredit)
+                if (Schema::hasTable('accounting_journals')) {
+                    AccountingJournal::insert([
+                        [
+                            'transaction_id' => $transaction->id,
+                            'account_code'   => '101', // Kode Akun Kas Teller
+                            'position'       => 'Debit',
+                            'amount'         => $request->initial_deposit,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ],
+                        [
+                            'transaction_id' => $transaction->id,
+                            'account_code'   => '201', // Kode Akun Tabungan Nasabah
+                            'position'       => 'Credit',
+                            'amount'         => $request->initial_deposit,
+                            'created_at'     => now(),
+                            'updated_at'     => now(),
+                        ]
+                    ]);
+                }
             });
 
-            return redirect()->back()->with('success', 'Rekening berhasil diaktivasi dan setoran awal berhasil dicatat!');
+            if ($createdSaver) {
+                AuditLog::record(
+                    'TAMBAH_NASABAH',
+                    'Data Nasabah',
+                    "Menambahkan & mengaktifkan rekening nasabah ({$createdSaver->category_label}): {$createdSaver->student_name} (ID: {$createdSaver->student_id}, No. Rek: {$createdSaver->account_number}) dengan setoran awal Rp " . number_format((float) $request->initial_deposit, 0, ',', '.'),
+                    auth()->id(),
+                    auth()->user()?->officer_name ?? auth()->user()?->username ?? 'Administrator'
+                );
+            }
+
+            return redirect()->back()->with('success', 'Rekening nasabah ' . $request->student_name . ' berhasil dibuat & diaktivasi dengan setoran awal Rp ' . number_format((float) $request->initial_deposit, 0, ',', '.') . '!');
 
         } catch (\Exception $e) {
             return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
@@ -481,23 +556,37 @@ class AdminCustomerController extends Controller
     }
 
     /**
-     * Update student details.
+     * Update customer details (Siswa maupun Non-Siswa).
      */
     public function update(Request $request, $id)
     {
         $saver = Saver::findOrFail($id);
 
+        $category = strtolower(trim((string) $request->input('category', $saver->category ?? 'student')));
+        if (!array_key_exists($category, Saver::CATEGORIES)) {
+            $category = 'student';
+        }
+        if ($category !== 'student' && !$request->filled('grade_class')) {
+            $request->merge(['grade_class' => Saver::defaultGradeForCategory($category)]);
+        }
+
         $request->validate([
-            'student_id'   => 'required|string|unique:savers,student_id,' . $id,
+            'student_id'   => 'required|string|max:30|unique:savers,student_id,' . $id,
             'student_name' => 'required|string|max:255',
-            'grade_class'  => 'required|string|max:50',
+            'grade_class'  => 'required|string|max:60',
+            'category'     => 'nullable|string|in:student,teacher,staff,community',
         ]);
 
-        $saver->update([
+        $updatePayload = [
             'student_id'   => $request->student_id,
             'student_name' => $request->student_name,
             'grade_class'  => $request->grade_class,
-        ]);
+        ];
+        if (Schema::hasColumn('savers', 'category')) {
+            $updatePayload['category'] = $category;
+        }
+
+        $saver->update($updatePayload);
 
         if ($request->filled('security_pin')) {
             $saver->update([

@@ -22,8 +22,11 @@
                 </span>
             @endif
             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-pill fw-semibold">
-                <i class="bi bi-hourglass-split me-1"></i> Total {{ $totalInactiveCount ?? $members->count() }} Siswa Belum Aktif
+                <i class="bi bi-hourglass-split me-1"></i> Total {{ $totalInactiveCount ?? $members->count() }} Belum Aktif
             </span>
+            <button type="button" class="btn btn-dark" style="background: linear-gradient(135deg, #16233F, #3B5BA5); border: none; border-radius: 12px; padding: 9px 16px; font-weight: 500; font-size: 0.86rem;" data-bs-toggle="modal" data-bs-target="#modalCreateMember">
+                <i class="bi bi-person-plus-fill me-1"></i> Tambah Anggota / Non-Siswa
+            </button>
             <a href="{{ route('admin.members.import.form') }}" class="btn btn-primary" style="background: linear-gradient(135deg, #0F766E, #14B8A6); border: none; border-radius: 12px; padding: 9px 18px; font-weight: 500; font-size: 0.86rem; box-shadow: 0 8px 18px rgba(15, 118, 110, 0.2);">
                 <i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Unggah Data Siswa (Excel)
             </a>
@@ -239,6 +242,52 @@
 {{-- Modals are placed OUTSIDE .card-glass at the bottom of the --}}
 {{-- view to completely eliminate z-index/backdrop freeze bugs  --}}
 {{-- ======================================================== --}}
+{{-- Modal Tambah Calon Anggota / Nasabah Non-Siswa --}}
+<div class="modal fade" id="modalCreateMember" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-person-plus-fill text-primary me-2"></i> Tambah Calon Anggota / Non-Siswa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Batal"></button>
+            </div>
+            <form action="{{ route('admin.members.store') }}" method="POST">
+                @csrf
+                <div class="modal-body py-3 px-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark">Kategori Calon Nasabah <span class="text-danger">*</span></label>
+                        <select name="category" id="memberCategorySelect" class="form-select rounded-3" required>
+                            @foreach(\App\Models\Saver::CATEGORIES as $catKey => $catLabel)
+                                <option value="{{ $catKey }}" {{ old('category', 'community') === $catKey ? 'selected' : '' }}>{{ $catLabel }}</option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted" style="font-size: 0.72rem;">Mendukung pendaftaran Guru, Staf/Karyawan, Ibu Kantin/Warga Sekolah, maupun Siswa baru.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark">Nama Lengkap <span class="text-danger">*</span></label>
+                        <input type="text" name="student_name" class="form-control rounded-3" placeholder="Contoh: Ibu Rini (Kantin) / Bpk. Hendra" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-dark">NIS / NIP / NIK / ID (Opsional untuk Non-Siswa)</label>
+                        <input type="text" name="student_id" class="form-control rounded-3" placeholder="Kosongkan untuk kode ID otomatis (misal WS-2026001)">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold text-dark">Unit / Jabatan / Kelas <span class="text-danger">*</span></label>
+                        <input type="text" name="grade_class" id="memberGradeInput" class="form-control rounded-3" value="Warga Sekolah / Kantin" placeholder="Contoh: Warga Sekolah / Kantin, Guru, Staf TU, atau X RPL 1" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold" style="background: #16233F; border: none;">
+                        <i class="bi bi-check-circle-fill me-1"></i> Simpan Data Anggota
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @foreach($members as $member)
 <div class="modal fade" 
      id="modalActivate{{ $member->id }}" 

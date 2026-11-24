@@ -18,6 +18,7 @@ class TellerShift extends Model
         'shared_user_ids',
         'opening_balance',
         'closing_balance',
+        'cash_denominations',
         'system_balance',
         'difference',
         'notes',
@@ -30,8 +31,9 @@ class TellerShift extends Model
     ];
 
     protected $casts = [
-        'shared_user_ids' => 'array',
-        'opening_balance' => 'integer',
+        'shared_user_ids'    => 'array',
+        'cash_denominations' => 'array',
+        'opening_balance'    => 'integer',
         'closing_balance' => 'integer',
         'system_balance'  => 'integer',
         'difference'      => 'integer',

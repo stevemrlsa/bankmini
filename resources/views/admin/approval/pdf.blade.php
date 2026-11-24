@@ -261,8 +261,47 @@
         </tbody>
     </table>
 
+    <!-- RINCIAN PECAHAN UANG FISIK (DENOMINASI) -->
+    @php
+        $rawDenoms = is_array($report->cash_denominations ?? null) ? $report->cash_denominations : [];
+        $hasDenomBreakdown = count(array_filter($rawDenoms, fn($q) => (int)$q > 0)) > 0;
+    @endphp
+    @if($hasDenomBreakdown)
+    <div class="section-title">II. Rincian Pecahan Uang Fisik di Laci Kasir (Denominasi)</div>
+    <table class="table-data">
+        <thead>
+            <tr>
+                <th width="8%" class="text-center">No</th>
+                <th width="37%">Pecahan Uang (Rupiah)</th>
+                <th width="25%" class="text-center">Jumlah (Lembar / Keping)</th>
+                <th width="30%" class="text-right">Subtotal (Rupiah)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php $dNo = 1; $denomSum = 0; @endphp
+            @foreach(\App\Models\DailyReport::DENOMINATIONS as $denom)
+                @php
+                    $qty = (int) ($rawDenoms[(string)$denom] ?? $rawDenoms[$denom] ?? 0);
+                    $sub = $denom * $qty;
+                    $denomSum += $sub;
+                @endphp
+                <tr>
+                    <td class="text-center">{{ $dNo++ }}</td>
+                    <td>Rp {{ number_format($denom, 0, ',', '.') }}</td>
+                    <td class="text-center fw-bold">{{ $qty }}</td>
+                    <td class="text-right {{ $qty > 0 ? 'fw-bold' : '' }}">Rp {{ number_format($sub, 0, ',', '.') }}</td>
+                </tr>
+            @endforeach
+            <tr style="background-color: #f0fdf4;">
+                <td colspan="3" class="text-right fw-bold">Total Hasil Perhitungan Pecahan Fisik</td>
+                <td class="text-right fw-bold" style="color: #15803d; font-size: 12px;">Rp {{ number_format($denomSum, 0, ',', '.') }}</td>
+            </tr>
+        </tbody>
+    </table>
+    @endif
+
     <!-- CATATAN / REKONSILIASI -->
-    <div class="section-title">II. Catatan &amp; Keterangan Rekonsiliasi</div>
+    <div class="section-title">{{ $hasDenomBreakdown ? 'III.' : 'II.' }} Catatan &amp; Keterangan Rekonsiliasi</div>
     <div class="notes-box">
         <strong>Catatan Teller / Admin:</strong><br>
         {{ $report->notes ? $report->notes : 'Tidak ada catatan khusus. Perhitungan fisik dan sistem telah dicocokkan sesuai SOP penutupan kasir Bank Mini.' }}

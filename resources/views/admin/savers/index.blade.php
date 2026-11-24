@@ -196,21 +196,31 @@
                 @endif
             </select>
 
+            <select name="category" class="filter-select" onchange="this.form.submit()">
+                <option value="">Semua Kategori</option>
+                @foreach(\App\Models\Saver::CATEGORIES as $catKey => $catLabel)
+                    <option value="{{ $catKey }}" {{ request('category') === $catKey ? 'selected' : '' }}>{{ $catLabel }}</option>
+                @endforeach
+            </select>
+
             <select name="status" class="filter-select" onchange="this.form.submit()">
                 <option value="">Semua Status</option>
                 <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
                 <option value="blocked" {{ request('status') === 'blocked' ? 'selected' : '' }}>Diblokir</option>
             </select>
 
-            @if(request('search') || request('class') || request('status'))
+            @if(request('search') || request('class') || request('status') || request('category'))
                 <a href="{{ route('admin.savers.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-2 text-decoration-none" style="font-size: 0.78rem;">
                     <i class="bi bi-x-circle me-1"></i> Reset Filter
                 </a>
             @endif
         </form>
 
-        <!-- Tombol Aksi Massal -->
+        <!-- Tombol Aksi Massal & Tambah Nasabah -->
         <div class="d-flex gap-2 flex-wrap align-items-center">
+            <button type="button" class="btn-primary-navy" style="background: linear-gradient(135deg, #0F766E, #14B8A6);" data-bs-toggle="modal" data-bs-target="#modalCreateSaver">
+                <i class="bi bi-person-plus-fill"></i> Tambah Nasabah
+            </button>
             @if(Route::has('admin.alumni.index'))
                 <a href="{{ route('admin.alumni.index') }}" class="btn btn-outline-dark rounded-3 px-3 py-2 fw-semibold" style="font-size: 0.85rem; border-radius: 12px;">
                     <i class="bi bi-mortarboard me-1"></i> Data Siswa Lulus (Alumni)
@@ -223,16 +233,16 @@
         </div>
     </div>
 
-    <!-- Tabel Data Nasabah Siswa Aktif -->
+    <!-- Tabel Data Nasabah Aktif (Siswa & Non-Siswa) -->
     <div class="table-premium-wrap">
         <div class="table-responsive">
             <table class="table table-premium">
                 <thead>
                     <tr>
                         <th>No. Rekening</th>
-                        <th>NIS</th>
-                        <th>Nama Siswa</th>
-                        <th>Kelas</th>
+                        <th>NIS / ID</th>
+                        <th>Nama Nasabah</th>
+                        <th>Kelas / Unit</th>
                         <th>Status</th>
                         <th>Saldo Tabungan</th>
                         <th style="width: 245px;" class="text-center">Aksi</th>
@@ -248,7 +258,12 @@
                             <span class="fw-semibold text-secondary">{{ $item->student_id }}</span>
                         </td>
                         <td>
-                            <span class="fw-medium text-dark">{{ $item->student_name }}</span>
+                            <span class="fw-medium text-dark d-block">{{ $item->student_name }}</span>
+                            @if($item->isNonStudent())
+                                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-0 mt-1" style="font-size: 0.68rem;">
+                                    <i class="bi bi-person-badge me-1"></i>{{ $item->category_label }}
+                                </span>
+                            @endif
                         </td>
                         <td>
                             <span class="kelas-badge">{{ $item->grade_class ?? '-' }}</span>
@@ -347,6 +362,69 @@
         @endif
     </div>
 
+    <!-- Modal Tambah Nasabah Baru (Siswa maupun Non-Siswa: Guru, Staf, Warga Sekolah/Kantin) -->
+    <div class="modal fade" id="modalCreateSaver" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-glass">
+                <div class="modal-header border-0 pb-0 justify-content-between">
+                    <h5 class="modal-title fw-bold text-dark">
+                        <i class="bi bi-person-plus-fill text-success me-2"></i> Tambah & Aktivasi Nasabah Baru
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <form action="{{ route('admin.savers.store') }}" method="POST">
+                    @csrf
+                    <div class="modal-body py-3">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark">Kategori Nasabah <span class="text-danger">*</span></label>
+                            <select name="category" id="createSaverCategory" class="form-select rounded-3" required>
+                                @foreach(\App\Models\Saver::CATEGORIES as $catKey => $catLabel)
+                                    <option value="{{ $catKey }}" {{ old('category', 'community') === $catKey ? 'selected' : '' }}>{{ $catLabel }}</option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted" style="font-size: 0.72rem;">Nasabah Non-Siswa (Guru, Staf, Kantin/Warga Sekolah) otomatis dikecualikan dari Kenaikan Kelas Massal.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark">Nama Lengkap Nasabah <span class="text-danger">*</span></label>
+                            <input type="text" name="student_name" class="form-control rounded-3" placeholder="Contoh: Ibu Siti (Kantin) / Drs. Budi Santoso" value="{{ old('student_name') }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark" id="createSaverIdLabel">NIP / NIK / ID Nasabah (Opsional)</label>
+                            <input type="text" name="student_id" id="createSaverIdInput" class="form-control rounded-3" placeholder="Kosongkan untuk kode ID otomatis (misal WS-2026001)" value="{{ old('student_id') }}">
+                            <small class="text-muted" id="createSaverIdHelp" style="font-size: 0.72rem;">Untuk Non-Siswa, boleh dikosongkan agar sistem membuatkan kode ID unik secara otomatis.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark" id="createSaverGradeLabel">Unit / Jabatan / Kelas <span class="text-danger">*</span></label>
+                            <input type="text" name="grade_class" id="createSaverGradeInput" class="form-control rounded-3" placeholder="Contoh: Warga Sekolah / Kantin, Guru, Staf TU, atau X RPL 1" value="{{ old('grade_class', 'Warga Sekolah / Kantin') }}" required>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-sm-7">
+                                <label class="form-label small fw-semibold text-dark">Setoran Awal (Rp) <span class="text-danger">*</span></label>
+                                <input type="number" name="initial_deposit" class="form-control rounded-3 fw-bold text-success" min="10000" step="500" value="{{ old('initial_deposit', 10000) }}" required>
+                                <small class="text-muted" style="font-size: 0.7rem;">Minimal Rp 10.000</small>
+                            </div>
+                            <div class="col-sm-5">
+                                <label class="form-label small fw-semibold text-dark">PIN Transaksi (6 Digit)</label>
+                                <input type="password" name="security_pin" class="form-control rounded-3 text-center fw-bold" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" value="123456" required>
+                                <small class="text-muted" style="font-size: 0.7rem;">Default: 123456</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary-navy" style="background: linear-gradient(135deg, #0F766E, #14B8A6);">
+                            <i class="bi bi-check-circle-fill me-1"></i> Simpan & Aktifkan Rekening
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Konfirmasi Naik Kelas Massal -->
     <div class="modal fade" id="modalBulkPromote" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered">
@@ -418,13 +496,13 @@
                 </div>
             </div>
 
-            <!-- Modal Edit Data Siswa -->
+            <!-- Modal Edit Data Nasabah -->
             <div class="modal fade" id="modalEdit{{ $item->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content modal-content-glass">
                         <div class="modal-header border-0 pb-0 justify-content-between">
                             <h5 class="modal-title fw-bold text-dark">
-                                <i class="bi bi-pencil-square text-warning me-2"></i> Edit Data Siswa
+                                <i class="bi bi-pencil-square text-warning me-2"></i> Edit Data Nasabah
                             </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
                         </div>
@@ -433,15 +511,26 @@
                             @method('PUT')
                             <div class="modal-body py-3">
                                 <div class="mb-3">
-                                    <label class="form-label small fw-semibold text-dark">Nama Lengkap Siswa</label>
+                                    <label class="form-label small fw-semibold text-dark">Kategori Nasabah</label>
+                                    <select name="category" class="form-select rounded-3">
+                                        @php
+                                            $currentCat = $item->category ?? ($item->isNonStudent() ? 'community' : 'student');
+                                        @endphp
+                                        @foreach(\App\Models\Saver::CATEGORIES as $catKey => $catLabel)
+                                            <option value="{{ $catKey }}" {{ $currentCat === $catKey ? 'selected' : '' }}>{{ $catLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small fw-semibold text-dark">Nama Lengkap Nasabah</label>
                                     <input type="text" name="student_name" class="form-control rounded-3" value="{{ $item->student_name }}" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label small fw-semibold text-dark">Nomor Induk Siswa (NIS)</label>
+                                    <label class="form-label small fw-semibold text-dark">NIS / NIP / ID Nasabah</label>
                                     <input type="text" name="student_id" class="form-control rounded-3" value="{{ $item->student_id }}" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label small fw-semibold text-dark">Kelas / Rombel</label>
+                                    <label class="form-label small fw-semibold text-dark">Kelas / Unit / Jabatan</label>
                                     <input type="text" name="grade_class" class="form-control rounded-3" value="{{ $item->grade_class }}" required>
                                 </div>
                                 <div class="mb-3">
@@ -530,4 +619,53 @@
         @endforeach
     @endif
 
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const catSelect = document.getElementById('createSaverCategory');
+    const idLabel = document.getElementById('createSaverIdLabel');
+    const idInput = document.getElementById('createSaverIdInput');
+    const idHelp = document.getElementById('createSaverIdHelp');
+    const gradeLabel = document.getElementById('createSaverGradeLabel');
+    const gradeInput = document.getElementById('createSaverGradeInput');
+
+    const defaultGrades = {
+        teacher: 'Guru / Pendidik',
+        staff: 'Staf & Karyawan',
+        community: 'Warga Sekolah / Kantin'
+    };
+
+    function syncCategoryFields() {
+        if (!catSelect) return;
+        const val = catSelect.value;
+        if (val === 'student') {
+            idLabel.innerHTML = 'Nomor Induk Siswa (NIS) <span class="text-danger">*</span>';
+            idInput.required = true;
+            idInput.placeholder = 'Contoh: 17809';
+            idHelp.textContent = 'Wajib diisi sesuai NIS siswa.';
+            gradeLabel.innerHTML = 'Kelas / Rombel <span class="text-danger">*</span>';
+            if (Object.values(defaultGrades).includes(gradeInput.value.trim())) {
+                gradeInput.value = '';
+            }
+            gradeInput.placeholder = 'Contoh: X RPL 1';
+        } else {
+            idLabel.innerHTML = 'NIP / NIK / ID Nasabah (Opsional)';
+            idInput.required = false;
+            idInput.placeholder = 'Kosongkan untuk kode ID otomatis';
+            idHelp.textContent = 'Boleh dikosongkan agar sistem membuatkan kode ID unik secara otomatis.';
+            gradeLabel.innerHTML = 'Unit / Jabatan <span class="text-danger">*</span>';
+            if (!gradeInput.value.trim() || Object.values(defaultGrades).includes(gradeInput.value.trim())) {
+                gradeInput.value = defaultGrades[val] || 'Warga Sekolah / Kantin';
+            }
+            gradeInput.placeholder = 'Contoh: Ibu Kantin, Guru Matematika, Staf TU';
+        }
+    }
+
+    if (catSelect) {
+        catSelect.addEventListener('change', syncCategoryFields);
+        syncCategoryFields();
+    }
+});
+</script>
+@endpush
 @endsection

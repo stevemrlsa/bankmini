@@ -33,7 +33,7 @@ class ApprovalController extends Controller
                     ->exists();
 
                 if (!$exists) {
-                    DailyReport::create([
+                    $syncData = [
                         'teller_id'                => $shift->user_id,
                         'report_date'              => $openedDate,
                         'opening_balance'          => $shift->opening_balance ?? 0,
@@ -47,7 +47,11 @@ class ApprovalController extends Controller
                         'approval_at'              => $shift->approved_at,
                         'created_at'               => $shift->closed_at ?? $shift->created_at,
                         'updated_at'               => $shift->updated_at,
-                    ]);
+                    ];
+                    if (Schema::hasColumn('daily_reports', 'cash_denominations') && !empty($shift->cash_denominations)) {
+                        $syncData['cash_denominations'] = $shift->cash_denominations;
+                    }
+                    DailyReport::create($syncData);
                 }
             }
         } catch (\Throwable $e) {

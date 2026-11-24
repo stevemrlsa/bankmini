@@ -117,6 +117,8 @@
                 <form method="POST" action="{{ route('teller.shift.end') }}" class="text-start">
                     @csrf
 
+                    @include('teller.partials.cash_denominations_table')
+
                     <div class="mb-3">
                         <label for="physical_cash" class="form-label fw-semibold text-dark small">
                             Total Kas Fisik Akhir (Blind Count) <span class="text-danger">*</span>
@@ -130,7 +132,7 @@
                                    name="physical_cash" 
                                    value="{{ old('physical_cash', old('closing_balance')) }}" 
                                    min="0" 
-                                   step="1000" 
+                                   step="500" 
                                    class="form-control border-start-0 ps-2 fs-5 fw-bold @error('physical_cash') is-invalid @enderror" 
                                    placeholder="0" 
                                    style="border-radius: 0 12px 12px 0; border-color: #E5E7EB; color: #16233F;" 

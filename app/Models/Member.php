@@ -18,6 +18,7 @@ class Member extends Model
         'account_number',
         'name',
         'grade_class',
+        'category',
         'graduation_year',
         'security_pin',
         'status',

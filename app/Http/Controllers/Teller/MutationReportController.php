@@ -97,9 +97,7 @@ class MutationReportController extends Controller
     {
         $teller = Auth::user();
         $periodData = $this->reportService->resolveTellerPeriod(
-            $request->query('period', 'today'),
-            $request->query('start_date'),
-            $request->query('end_date')
+            $request->query('period', 'today')
         );
         $normalizedType = $this->reportService->normalizeType($request->query('type', 'all'));
         $typeLabel = $this->reportService->getTypeLabel($normalizedType);

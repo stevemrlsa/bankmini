@@ -1009,53 +1009,101 @@
                 color: #0F172A !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                height: auto !important;
+                width: 100% !important;
+                height: 100% !important;
                 min-height: 0 !important;
-                overflow: visible !important;
+                overflow: hidden !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
-            .modal,
+            .sidebar,
+            .topbar,
+            #topProgressBar,
+            #dashboardDefaultView,
+            #tellerFocusStage,
+            .form-stage,
             .modal-backdrop,
+            .modal:not(#modalReceipt):not(#modalFocusReceipt) {
+                display: none !important;
+            }
+
+            .app-shell,
+            .main-wrapper,
+            .content-area,
+            .main-content,
+            .page-content,
             #modalReceipt,
-            #modalFocusReceipt {
+            #modalFocusReceipt,
+            #modalReceipt .modal-dialog,
+            #modalReceipt .modal-content,
+            #modalFocusReceipt .modal-dialog,
+            #modalFocusReceipt .modal-content {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                max-width: none !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
                 background: transparent !important;
                 background-color: transparent !important;
                 box-shadow: none !important;
+                transform: none !important;
             }
 
             #printableReceipt,
             #printableFocusReceipt {
-                position: absolute !important;
+                position: fixed !important;
                 left: 50% !important;
-                top: 0 !important;
-                transform: translateX(-50%) !important;
+                top: 50% !important;
+                transform: translate(-50%, -50%) !important;
                 display: block !important;
-                padding: 16px 20px !important;
+                padding: 28px 32px !important;
                 margin: 0 auto !important;
-                width: 330px !important;
-                max-width: 95% !important;
+                width: 440px !important;
+                max-width: 92vw !important;
+                font-size: 1rem !important;
                 color: #0F172A !important;
                 background: #FFFFFF !important;
-                border: 1px dashed #64748B !important;
-                border-radius: 12px !important;
+                border: 1.5px dashed #475569 !important;
+                border-radius: 16px !important;
                 box-shadow: none !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+            }
+
+            #printableReceipt h5,
+            #printableReceipt h6,
+            #printableFocusReceipt h5,
+            #printableFocusReceipt h6 {
+                font-size: 1.25rem !important;
+            }
+
+            #printableReceipt .small,
+            #printableFocusReceipt .small {
+                font-size: 0.95rem !important;
+            }
+
+            #printableReceipt .fs-5,
+            #printableFocusReceipt .fs-5 {
+                font-size: 1.45rem !important;
             }
 
             #printableReceipt .bg-light,
             #printableFocusReceipt .bg-light {
                 background-color: #F8FAFC !important;
                 border: 1px dashed #CBD5E1 !important;
+                padding: 12px 16px !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
 
             @page {
                 size: auto;
-                margin: 4mm;
+                margin: 8mm;
             }
         }
     </style>

@@ -83,6 +83,7 @@ Route::middleware('web')->group(function () {
 // ========================================================
 Route::middleware(['auth'])->group(function () {
     Route::get('/member-data', [AdminMemberController::class, 'index'])->name('admin.members.index');
+    Route::post('/member-data', [AdminMemberController::class, 'store'])->name('admin.members.store');
     Route::get('/member-data/import', [AdminMemberController::class, 'importForm'])->name('admin.members.import.form');
     Route::post('/member-data/import', [AdminMemberController::class, 'import'])->name('admin.members.import');
     Route::get('/member-data/template', [AdminMemberController::class, 'downloadTemplate'])->name('admin.members.template');
@@ -90,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Route aliases for backward compatibility and avoiding route mismatches
     Route::get('/admin/member-data', [AdminMemberController::class, 'index'])->name('admin.member-data.index');
+    Route::post('/admin/member-data', [AdminMemberController::class, 'store'])->name('admin.member-data.store');
     Route::get('/admin/member-data/import', [AdminMemberController::class, 'importForm']);
     Route::post('/admin/member-data/import', [AdminMemberController::class, 'import']);
     Route::get('/admin/member-data/template', [AdminMemberController::class, 'downloadTemplate']);
@@ -273,8 +275,9 @@ Route::prefix('teller')->middleware(['auth', 'role:Teller'])->group(function () 
         Route::get('/report/closing', [DailyReportController::class, 'index'])->name('teller.report.closing');
         Route::post('/report/closing', [DailyReportController::class, 'store'])->name('teller.report.store');
 
-        // One-Stop Aktivasi Nasabah Baru
+        // One-Stop Aktivasi Nasabah Baru (Siswa & Non-Siswa)
         Route::get('/activations', [TellerActivationController::class, 'index'])->name('teller.activations.index');
+        Route::post('/activations', [TellerActivationController::class, 'store'])->name('teller.activations.store');
         Route::post('/activations/{id}', [TellerActivationController::class, 'activate'])->name('teller.activations.activate');
 
         // Janjian Penarikan Dana Besar (> Rp 1.000.000) - Loket Teller

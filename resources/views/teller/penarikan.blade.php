@@ -656,7 +656,7 @@
     <!-- ===== Modal Struk Penarikan (Receipt) ===== -->
     @if(session('receipt'))
     <div class="modal fade show" id="modalReceipt" tabindex="-1" style="display: block; background: rgba(0,0,0,0.5);" aria-modal="true" role="dialog">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
             <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.25);">
                 <div class="modal-body p-4 text-center" id="printableReceipt">
                     <div class="mb-2"><i class="bi bi-bank2 fs-2 text-primary"></i></div>
@@ -665,39 +665,39 @@
                     <hr style="border-top: 1px dashed #94A3B8;">
 
                     <div class="text-start small">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">No. Transaksi:</span>
-                            <span class="fw-semibold">#TRX-{{ session('receipt')['id'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">No. Transaksi:</span>
+                            <span class="fw-semibold text-end">#TRX-{{ session('receipt')['id'] }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Waktu:</span>
-                            <span>{{ session('receipt')['date'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Waktu:</span>
+                            <span class="text-end">{{ session('receipt')['date'] }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Teller:</span>
-                            <span>{{ session('receipt')['teller_name'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Teller:</span>
+                            <span class="text-end">{{ session('receipt')['teller_name'] }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">No. Rekening:</span>
-                            <span class="fw-bold">{{ session('receipt')['account_number'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">No. Rekening:</span>
+                            <span class="fw-bold text-end">{{ session('receipt')['account_number'] }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Nama Nasabah:</span>
-                            <span class="fw-bold">{{ session('receipt')['student_name'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Nama Nasabah:</span>
+                            <span class="fw-bold text-end">{{ session('receipt')['student_name'] }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Jenis Transaksi:</span>
-                            <span class="fw-semibold text-danger">{{ session('receipt')['type'] }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-3">
+                            <span class="text-muted text-nowrap flex-shrink-0">Jenis Transaksi:</span>
+                            <span class="fw-semibold text-danger text-end">{{ session('receipt')['type'] }}</span>
                         </div>
 
-                        <div class="p-2 rounded-3 bg-light text-center mb-2">
-                            <small class="text-muted d-block">Jumlah Penarikan:</small>
+                        <div class="p-3 rounded-3 bg-light text-center mb-3">
+                            <small class="text-muted d-block mb-1">Jumlah Penarikan:</small>
                             <span class="fs-5 fw-bold text-danger">Rp {{ number_format(session('receipt')['amount'], 0, ',', '.') }}</span>
                         </div>
 
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted">Sisa Saldo:</span>
-                            <span class="fw-bold text-success">Rp {{ number_format(session('receipt')['current_balance'], 0, ',', '.') }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3">
+                            <span class="text-muted text-nowrap flex-shrink-0">Sisa Saldo:</span>
+                            <span class="fw-bold text-success text-end">Rp {{ number_format(session('receipt')['current_balance'], 0, ',', '.') }}</span>
                         </div>
                     </div>
 

@@ -1035,7 +1035,7 @@
          MODAL STRUK TRANSAKSI SUKSES (RECEIPT MODAL)
          ======================================================== -->
     <div class="modal fade" id="modalFocusReceipt" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
             <div class="modal-content" style="border-radius: 24px; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.25);">
                 <div class="modal-body p-4 text-center" id="printableFocusReceipt">
                     <div class="mb-2"><i class="bi bi-check-circle-fill fs-1 text-success"></i></div>
@@ -1044,39 +1044,39 @@
                     <hr style="border-top: 1px dashed #94A3B8;">
 
                     <div class="text-start small">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">No. Transaksi:</span>
-                            <span class="fw-semibold" id="receiptTxId">#TRX-0</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">No. Transaksi:</span>
+                            <span class="fw-semibold text-end" id="receiptTxId">#TRX-0</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Waktu:</span>
-                            <span id="receiptTxDate">-</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Waktu:</span>
+                            <span class="text-end" id="receiptTxDate">-</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Teller:</span>
-                            <span>{{ Auth::user()->officer_name ?? Auth::user()->username ?? 'Teller' }}</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Teller:</span>
+                            <span class="text-end">{{ Auth::user()->officer_name ?? Auth::user()->username ?? 'Teller' }}</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">No. Rekening:</span>
-                            <span class="fw-bold" id="receiptAccountNum">-</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">No. Rekening:</span>
+                            <span class="fw-bold text-end" id="receiptAccountNum">-</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">Nama Nasabah:</span>
-                            <span class="fw-bold" id="receiptStudentName">-</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-2">
+                            <span class="text-muted text-nowrap flex-shrink-0">Nama Nasabah:</span>
+                            <span class="fw-bold text-end" id="receiptStudentName">-</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Jenis:</span>
-                            <span class="fw-semibold" id="receiptType">-</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3 mb-3">
+                            <span class="text-muted text-nowrap flex-shrink-0">Jenis Transaksi:</span>
+                            <span class="fw-semibold text-end" id="receiptType">-</span>
                         </div>
 
-                        <div class="p-2 rounded-3 bg-light text-center mb-2">
-                            <small class="text-muted d-block">Jumlah Nominal:</small>
+                        <div class="p-3 rounded-3 bg-light text-center mb-3">
+                            <small class="text-muted d-block mb-1">Jumlah Nominal:</small>
                             <span class="fs-5 fw-bold" id="receiptAmount">Rp 0</span>
                         </div>
 
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted">Saldo Akhir:</span>
-                            <span class="fw-bold text-success" id="receiptFinalBalance">Rp 0</span>
+                        <div class="d-flex justify-content-between align-items-baseline gap-3">
+                            <span class="text-muted text-nowrap flex-shrink-0">Saldo Akhir:</span>
+                            <span class="fw-bold text-success text-end" id="receiptFinalBalance">Rp 0</span>
                         </div>
                     </div>
 

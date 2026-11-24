@@ -16,35 +16,22 @@ class DailyReportController extends Controller
      */
     public function index()
     {
-        // 1. Find the active shift for the authenticated teller
-        $activeShift = TellerShift::where('user_id', Auth::id())
-            ->where('status', 'Open')
-            ->first();
+        // 1. Find the active shift for the authenticated teller (supports shared shift)
+        $activeShift = TellerShift::getActiveOpenShift()
+            ?? TellerShift::where('user_id', Auth::id())->where('status', 'Open')->first();
 
         if (!$activeShift) {
             return redirect()->back(fallback: route('teller.dashboard'))
                 ->with('error', 'Tidak ada laci kasir yang sedang aktif.');
         }
 
-        // 2. Extract opening balance
-        $saldoAwal = $activeShift->opening_balance;
+        $activeShift->attachTeller(Auth::id());
 
-        // 3. Calculate total successful deposits since shift opened
-        $totalSetoran = Transaction::where('user_id', Auth::id())
-            ->whereIn('transaction_type', ['Deposit', 'deposit', 'setor', 'setoran'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        // 4. Calculate total successful withdrawals since shift opened
-        $totalPenarikan = Transaction::where('user_id', Auth::id())
-            ->whereIn('transaction_type', ['Withdrawal', 'withdrawal', 'tarik', 'penarikan'])
-            ->where('created_at', '>=', $activeShift->opened_at)
-            ->where('status', '!=', 'Failed')
-            ->sum('amount');
-
-        // 5. Calculate target system balance
-        $targetSaldo = $saldoAwal + $totalSetoran - $totalPenarikan;
+        // 2. Calculate shift balances consistently with shared shift logic
+        $saldoAwal = (float) ($activeShift->opening_balance ?? 0);
+        $totalSetoran = $activeShift->calculateTotalDeposits();
+        $totalPenarikan = $activeShift->calculateTotalWithdrawals();
+        $targetSaldo = $activeShift->calculateSystemBalance();
 
         // Variable aliases for template backwards compatibility
         $openingBalance       = $saldoAwal;
@@ -70,6 +57,9 @@ class DailyReportController extends Controller
      */
     public function store(Request $request)
     {
+        // 0. Hitung otomatis rincian pecahan uang fisik jika diinput
+        $denomData = DailyReport::normalizeDenominations($request->input('denominations'));
+
         // Support both physical_cash and closing_balance_physical input names
         if (!$request->has('physical_cash') && $request->has('closing_balance_physical')) {
             $request->merge(['physical_cash' => $request->closing_balance_physical]);
@@ -78,6 +68,10 @@ class DailyReportController extends Controller
         if ($request->has('physical_cash')) {
             $rawPhysical = str_replace('.', '', (string) $request->input('physical_cash'));
             $request->merge(['physical_cash' => $rawPhysical]);
+        }
+
+        if ($denomData['has_any'] && ($denomData['total'] > 0 || !$request->filled('physical_cash'))) {
+            $request->merge(['physical_cash' => $denomData['total']]);
         }
 
         // 1. Validate request
@@ -125,6 +119,9 @@ class DailyReportController extends Controller
 
         $finalNotes = $request->notes;
         $sharedNoteAppend = "Petugas Shift Bersama: [{$tellerNames}]. Ditutup oleh: " . (Auth::user()->officer_name ?: Auth::user()->username) . ". Rincian: " . $breakdownSummary;
+        if (!empty($denomData['summary_text'])) {
+            $sharedNoteAppend .= " | " . $denomData['summary_text'];
+        }
         $finalNotes = $finalNotes ? ($finalNotes . " | " . $sharedNoteAppend) : $sharedNoteAppend;
 
         // 7. Update the TellerShift record
@@ -139,10 +136,13 @@ class DailyReportController extends Controller
         if (\Illuminate\Support\Facades\Schema::hasColumn('teller_shifts', 'closed_by')) {
             $updateData['closed_by'] = Auth::id();
         }
+        if ($denomData['has_any'] && \Illuminate\Support\Facades\Schema::hasColumn('teller_shifts', 'cash_denominations')) {
+            $updateData['cash_denominations'] = $denomData['counts'];
+        }
         $activeShift->update($updateData);
 
         // Synchronize with DailyReport table for administrative approval workflow
-        DailyReport::create([
+        $reportData = [
             'teller_id'                => $activeShift->user_id,
             'report_date'              => now()->toDateString(),
             'opening_balance'          => $saldoAwal,
@@ -152,7 +152,11 @@ class DailyReportController extends Controller
             'closing_balance_physical' => $request->physical_cash,
             'notes'                    => $finalNotes,
             'status'                   => 'pending',
-        ]);
+        ];
+        if ($denomData['has_any'] && \Illuminate\Support\Facades\Schema::hasColumn('daily_reports', 'cash_denominations')) {
+            $reportData['cash_denominations'] = $denomData['counts'];
+        }
+        DailyReport::create($reportData);
 
         \App\Models\AuditLog::record(
             'TUTUP_SHIFT_KAS',
