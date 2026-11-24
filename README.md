@@ -1,58 +1,241 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+  <img src="public/images/logo-smkn1bantul.png" alt="Logo SMKN 1 Bantul" width="100" style="margin-bottom: 12px;"/>
 
-## About Laravel
+  # 🏦 Bank Mini SMKN 1 Bantul
+  ### *Sistem Informasi E-Teller & Layanan Perbankan Mini Sekolah Terintegrasi*
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+  [![Laravel Version](https://img.shields.io/badge/Laravel-11%20%7C%2012-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
+  [![PHP Version](https://img.shields.io/badge/PHP-8.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](https://php.net)
+  [![Flutter](https://img.shields.io/badge/Flutter-3.41-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
+  [![Database](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
+  [![CI/CD](https://img.shields.io/badge/GitHub_Actions-Automated_FTP_Deploy-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)](https://github.com/features/actions)
+  [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+  <p align="center">
+    <b>🌐 Live Production Web:</b> <a href="https://minibank.my.id">https://minibank.my.id</a><br/>
+    <b>📱 Unduh Aplikasi Nasabah (APK):</b> <a href="https://minibank.my.id/download-apk">Unduh BankMini-Nasabah.apk</a>
+  </p>
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+</div>
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 📌 Tentang Proyek
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+**Bank Mini SMKN 1 Bantul** adalah platform perbankan mini sekolah komprehensif yang dirancang untuk mendukung operasional loket keuangan sekolah secara akuntabel, transparan, dan *real-time*. Sistem ini mengintegrasikan **Web Portal Petugas (Administrator & Teller)** berbasis Laravel dengan **Aplikasi Mobile Nasabah (Siswa & Warga Sekolah)** berbasis Flutter Android melalui RESTful API Sanctum berstandar industri.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Proyek ini dikembangkan secara terstruktur mengikuti spesifikasi standar **Uji Kompetensi Keahlian (UKK) Rekayasa Perangkat Lunak**, prinsip pembukuan akuntansi perbankan *double-entry*, serta proteksi fisik laci teller untuk menjamin ketiadaan selisih kas.
 
-## Agentic Development
+---
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## 🚀 Fitur Unggulan Sistem
 
-```bash
-composer require laravel/boost --dev
+### 👑 1. Portal Administrator
+- **Dashboard Statistik Finansial:** Pantau total saldo beredar, perputaran kas harian, ringkasan saldo per kelas, dan status laci operasional secara *real-time*.
+- **Manajemen Data Anggota & Nasabah:**
+  - Import data anggota siswa massal dari format Excel / Spreadsheet.
+  - Dukungan nasabah **Siswa** maupun **Non-Siswa** (Guru, Staf/Karyawan TU, Warga Sekolah/Kantin) dengan auto-generate nomor rekening dan ID unik (`GR-`, `ST-`, `WS-`).
+  - Fitur **Kenaikan Kelas Massal** otomatis (Siswa kelas X $\rightarrow$ XI, XI $\rightarrow$ XII, XII $\rightarrow$ Alumni Lulus) dengan proteksi pengecualian nasabah non-siswa.
+- **Approval Kas Harian & Vault Transfer (Brankas):**
+  - Verifikasi laporan penutupan kas teller harian.
+  - Pengecekan rekonsiliasi uang fisik (termasuk validasi lembaran/koin 8 pecahan uang).
+  - Otorisasi pemindahan saldo fisik laci kasir ke **Brankas Utama (Vault)** secara otomatis.
+- **Jurnal Akuntansi Double-Entry Otomatis:**
+  - Setiap transaksi mencatat Debit & Kredit presisi pada Kode Akun:
+    - `101` - Kas Laci Teller
+    - `102` - Brankas Utama (Vault)
+    - `201` - Tabungan Nasabah
+- **Audit Log & Laporan Mutasi Komprehensif:**
+  - Seluruh aktivitas pengguna (*login, transaksi, approval, reset kredensial*) tercatat permanen pada sistem audit trail.
+  - Cetak dan unduh Laporan Mutasi Nasabah format PDF resmi berlogo sekolah.
 
-php artisan boost:install
+---
+
+### 💼 2. Portal Loket Teller
+- **Sistem Shift Kasir & Laci Kas Bersama (Multi-Teller):**
+  - Wajib input modal awal (*Opening Balance*) sebelum loket dapat melayani transaksi.
+  - Sinkronisasi saldo kas fisik laci bersama secara *real-time* antar sesama teller.
+- **One-Stop Aktivasi Rekening:**
+  - Pendaftaran akun, pembuatan nomor rekening otomatis, aktivasi PIN 6-digit, serta setoran pertama (minimal Rp 10.000) diselesaikan dalam satu alur cepat.
+  - Form khusus aktivasi nasabah non-siswa (Guru / Pegawai / Kantin).
+- **Setoran & Penarikan Tunai Cepat:**
+  - Input cepat menggunakan **Scan QR Code Kamera** kartu identitas siswa atau ketik nomor rekening.
+  - Validasi ketat penarikan:
+    - Saldo mengendap minimal Rp 10.000.
+    - Otorisasi PIN rahasia 6-digit nasabah.
+    - **Proteksi Kas Fisik Laci:** Penarikan ditolak otomatis oleh sistem jika uang fisik di laci loket teller tidak mencukupi (mencegah defisit kas).
+- **Cetak Struk Transaksi Resmi:**
+  - Cetak struk instan pasca-transaksi dengan layout presisi, font proporsional, dan terpusat di tengah kertas (*thermal* maupun A4/Letter).
+- **Penutupan Kas & Perhitungan 8 Pecahan Uang Tunai:**
+  - Rekonsiliasi otomatis: $\text{Modal Awal} + \text{Total Setoran} - \text{Total Penarikan} = \text{Target Saldo Sistem}$.
+  - Formulir rincian uang fisik laci kasir berdasarkan 8 pecahan mata uang rupiah:
+    - `Rp 100.000` | `Rp 50.000` | `Rp 20.000` | `Rp 10.000`
+    - `Rp 5.000` | `Rp 2.000` | `Rp 1.000` | `Rp 500`
+  - Validasi selisih kas fisik dan catatan pertanggungjawaban sebelum dikirim ke Admin.
+- **Cetak Laporan Mutasi Teller (PDF):**
+  - Cetak mutasi transaksi harian atau bulanan dengan pilihan lingkup tugas (hanya transaksi teller bersangkutan atau seluruh loket).
+
+---
+
+### 📱 3. Aplikasi Mobile Nasabah (Flutter Android)
+- **Desain Modern & Responsif:** Tampilan antarmuka intuitif dengan skema warna elegan (Navy & Teal).
+- **Kartu Identitas Digital:** Dilengkapi QR Code dinamis untuk memudahkan pemindaian kartu di loket teller sekolah.
+- **Pemantauan Saldo & Mutasi Real-Time:** Menampilkan saldo aktif dan riwayat transaksi kredit/debit lengkap.
+- **Cetak / Ekspor Mutasi Rekening:** Fitur filter periode mutasi (Hari ini, 7 hari, 30 hari, bulan ini) serta ekspor cetak dokumen mutasi langsung dari smartphone.
+- **Keamanan Akun:**
+  - Autentikasi token Sanctum aman.
+  - Layanan ubah kata sandi & ubah PIN transaksi 6-digit dengan proteksi OTP.
+
+---
+
+## 🛠️ Tech Stack & Arsitektur
+
+| Komponen | Teknologi | Keterangan |
+| :--- | :--- | :--- |
+| **Backend Framework** | Laravel 11 / 12 (PHP 8.3) | Arsitektur MVC, Eloquent ORM, Database Transactions & Locking |
+| **Frontend Web** | Blade, Bootstrap 5.3, Bootstrap Icons | Desain Glassmorphism, CSS Variables, Responsive Sidebar Layout |
+| **Mobile Application**| Flutter 3.41 (Dart 3.11) | State Management, HTTP REST API, Pinput, Shared Preferences |
+| **Database Engine** | MySQL / MariaDB (InnoDB) | Foreign Keys Cascade, Row-Level Locking (`lockForUpdate`) |
+| **Authentication** | Session Guard & Laravel Sanctum | Pemisahan otentikasi Web Petugas dan Mobile API Nasabah |
+| **Dokumen & Cetak** | DomPDF & Native Print CSS | Kompilasi PDF server-side & layout struk presisi di peramban |
+| **Deployment / CI-CD**| GitHub Actions + FTP Deploy | Otomatis kompilasi Vite aset, sync hosting DomaiNesia, migrate & cache clear |
+
+---
+
+## 🏗️ Struktur Skema Akun Akuntansi (Double-Entry)
+
+Sistem menerapkan kaidah perbankan di mana tabungan nasabah merupakan kewajiban (*liabilitas*) bagi bank mini:
+
+```
++-----------------------------------------------------------------------------+
+| Transaksi Setoran Tunai Rp 50.000:                                          |
+|   (Debit)  101 - Kas Laci Teller               Rp 50.000                     |
+|   (Kredit) 201 - Tabungan Nasabah                            Rp 50.000      |
++-----------------------------------------------------------------------------+
+| Transaksi Penarikan Tunai Rp 20.000:                                        |
+|   (Debit)  201 - Tabungan Nasabah              Rp 20.000                     |
+|   (Kredit) 101 - Kas Laci Teller                             Rp 20.000      |
++-----------------------------------------------------------------------------+
+| Approval Tutup Kas & Pemindahan ke Brankas Rp 30.000:                       |
+|   (Debit)  102 - Brankas Utama (Vault)         Rp 30.000                     |
+|   (Kredit) 101 - Kas Laci Teller                             Rp 30.000      |
++-----------------------------------------------------------------------------+
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 💻 Panduan Instalasi Lokal (Local Setup)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Prasyarat:
+* **PHP** $\ge$ 8.2 (Disarankan PHP 8.3 dengan ekstensi `pdo_mysql`, `mbstring`, `fileinfo`, `gd`, `zip`, `intl`)
+* **Composer** $\ge$ 2.x
+* **Node.js** $\ge$ 20.x & **npm**
+* **MySQL / MariaDB** (melalui Laragon / XAMPP)
+* **Flutter SDK** $\ge$ 3.x *(Opsional, untuk kompilasi mobile app)*
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 1. Menjalankan Web Backend (Laravel)
 
-## Security Vulnerabilities
+```bash
+# 1. Clone repositori
+git clone https://github.com/stevemrlsa/bankmini.git
+cd bankmini
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# 2. Install dependensi Composer & Node
+composer install
+npm install
 
-## License
+# 3. Konfigurasi Environment File
+cp .env.example .env
+php artisan key:generate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# 4. Atur kredensial database di file .env
+# DB_CONNECTION=mysql
+# DB_HOST=127.0.0.1
+# DB_PORT=3306
+# DB_DATABASE=bankmini
+# DB_USERNAME=root
+# DB_PASSWORD=
+
+# 5. Jalankan migrasi dan seeder data demo
+php artisan migrate:fresh --seed
+
+# 6. Buat tautan storage publik (untuk logo & unduhan APK)
+php artisan storage:link
+
+# 7. Kompilasi aset Vite & jalankan server lokal
+npm run build
+php artisan serve
+```
+
+Akses portal web pada peramban: `http://localhost:8000` atau melalui virtual host Laragon `http://bankmini.test`.
+
+---
+
+### 2. Menjalankan Aplikasi Mobile (Flutter)
+
+```bash
+# Buka direktori aplikasi mobile
+cd /path/to/mobile_nasabah_bankmini/bankmini_nasabah
+
+# Unduh paket Flutter
+flutter pub get
+
+# Jalankan pengujian analisis kode
+flutter analyze
+
+# Jalankan aplikasi pada emulator atau HP fisik
+flutter run
+
+# Build berkas APK rilis final
+flutter build apk --release
+```
+*Berkas hasil build APK berada di: `build/app/outputs/flutter-apk/app-release.apk`.*
+
+---
+
+## 🔑 Kredensial Akun Pengujian (Demo Accounts)
+
+Untuk mempermudah demonstrasi dan penilaian, gunakan akun bawaan yang telah disiapkan oleh database seeder:
+
+| Peran (Role) | Username / ID | Password | Akses & Hak Istimewa |
+| :--- | :--- | :--- | :--- |
+| **Administrator Utama** | `admin` | `admin123` | Akses penuh dashboard, approval kas, jurnal akuntansi, manajemen pegawai & nasabah. |
+| **Administrator Pusat** | `admin_pusat` | `admin123` | Hak penuh manajemen dan audit finansial. |
+| **Loket Teller** | `teller_satu` | `teller123` | Buka shift kas, transaksi setor/tarik, cetak struk, dan penutupan kas harian. |
+| **Teller Operasional** | `teller_dua` | `password123` | Layanan loket kasir & aktivasi rekening baru. |
+| **Nasabah (Siswa Aktif)** | `20240101` / NIS | PIN: `123456` | Login aplikasi mobile, cek saldo, mutasi, kartu QR digital. |
+
+---
+
+## 🧪 Pengujian Otomatis (Automated Testing)
+
+Aplikasi dilengkapi unit dan feature testing lengkap untuk menjamin kestabilan logika perbankan:
+
+```bash
+# Menjalankan seluruh rangkaian test
+php artisan test
+
+# Menguji fitur revisi internal (Pecahan uang, nasabah non-siswa, struk cetak, logout)
+php artisan test --filter=InternalReviewRevisionsTest
+
+# Menguji generasi laporan PDF mutasi nasabah & teller
+php artisan test --filter=MutationReportPdfTest
+```
+
+---
+
+## 👨‍💻 Pengembang Proyek
+
+* **Institusi:** SMK Negeri 1 Bantul (Yogyakarta)
+* **Jurusan:** Rekayasa Perangkat Lunak (RPL)
+* **Pengembang:** Fadhilah Marele Saputro ([@stevemrlsa](https://github.com/stevemrlsa))
+* **Tahun Operasional:** 2026
+
+---
+
+## 📄 Lisensi
+
+Proyek ini didistribusikan di bawah lisensi terbuka [MIT License](LICENSE). Seluruh kode dapat dipelajari, dikembangkan, dan dimanfaatkan untuk kemajuan pendidikan kejuruan teknologi informasi.
